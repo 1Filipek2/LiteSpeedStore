@@ -33,3 +33,4 @@ The engine implements a durable, crash-safe persistence layer using a Write-Ahea
 ```
 
 I plan to extend this project further in the future as I experiment with more features and optimizations.
+<img width="1214" height="162" alt="image" src="https://github.com/user-attachments/assets/07ed081f-525f-4ea5-90ff-4c527e48c40f" />
