@@ -7,6 +7,7 @@
 #include <vector>
 #include <mutex>
 #include <shared_mutex>
+#include "persistence/WAL.hpp"
 
 // one entry for database stored in memory
 struct Record {
@@ -20,7 +21,9 @@ struct Record {
 
 class StorageEngine {
 public:
-    StorageEngine() = default;
+    // Default constructor uses default WAL path "litespeed.wal"
+    StorageEngine();
+    explicit StorageEngine(const std::string& dbPath);
     
     StorageEngine(const StorageEngine&) = delete;
     StorageEngine& operator=(const StorageEngine&) = delete;
@@ -34,8 +37,12 @@ public:
 
     size_t historyCount(const std::string& key) const;
 
+    // Recovers state from disk
+    void recover();
+
 private:
     std::unordered_map<std::string, std::vector<std::unique_ptr<Record>>> m_data; // O(1) lookups test
+    std::unique_ptr<persistence::WAL> m_wal;
 
     mutable std::shared_mutex m_mutex; // shared_mutex for multiple readers
 };
