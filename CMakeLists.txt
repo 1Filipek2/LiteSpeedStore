@@ -9,7 +9,15 @@ include_directories(include)
 add_executable(LiteSpeedStore 
     src/main.cpp 
     src/StorageEngine.cpp
+    src/WAL.cpp
 )
+
+add_executable(TestPersistence
+    src/test_persistence.cpp
+    src/StorageEngine.cpp
+    src/WAL.cpp
+)
+target_link_libraries(TestPersistence PRIVATE Threads::Threads)
 
 find_package(Threads REQUIRED)
 target_link_libraries(LiteSpeedStore PRIVATE Threads::Threads)
