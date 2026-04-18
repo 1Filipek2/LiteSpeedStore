@@ -1,8 +1,8 @@
 #pragma once
 #include <chrono>
 #include <string>
-#include <iostream>
 #include <functional>
+#include <utility>
 
 class Timer {
 public:
@@ -26,6 +26,7 @@ private:
     std::function<void(double)> m_callback;
 };
 
-#define TRACE_SCOPE(name, engine) Timer timer##__LINE__(name, [&](double ms) { \
-    engine.set(name, std::to_string(ms) + " ms", ms); \
-})
+#define TRACE_SCOPE(name, engine) \
+    Timer timer##__LINE__(name, [&](double ms) { \
+        engine.set(name, std::to_string(ms) + " ms", ms); \
+    })

@@ -4,20 +4,24 @@ project(LiteSpeedStore)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-include_directories(include)
+find_package(Threads REQUIRED)
+enable_testing()
 
-add_executable(LiteSpeedStore 
-    src/main.cpp 
+add_library(litespeed_core
     src/StorageEngine.cpp
     src/WAL.cpp
+    src/Snapshot.cpp
 )
+target_include_directories(litespeed_core PUBLIC include)
+target_link_libraries(litespeed_core PUBLIC Threads::Threads)
+
+add_executable(LiteSpeedStore
+    src/main.cpp
+)
+target_link_libraries(LiteSpeedStore PRIVATE litespeed_core)
 
 add_executable(TestPersistence
     src/test_persistence.cpp
-    src/StorageEngine.cpp
-    src/WAL.cpp
 )
-target_link_libraries(TestPersistence PRIVATE Threads::Threads)
-
-find_package(Threads REQUIRED)
-target_link_libraries(LiteSpeedStore PRIVATE Threads::Threads)
+target_link_libraries(TestPersistence PRIVATE litespeed_core)
+add_test(NAME TestPersistence COMMAND TestPersistence)

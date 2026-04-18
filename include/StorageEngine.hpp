@@ -7,6 +7,7 @@
 #include <vector>
 #include <mutex>
 #include <shared_mutex>
+#include <utility>
 #include "persistence/WAL.hpp"
 
 // one entry for database stored in memory
@@ -32,6 +33,7 @@ public:
     std::optional<std::string> get(const std::string& key) const;
     bool remove(const std::string& key);
     double getAverage(const std::string& key) const;
+    bool snapshot();
 
     size_t count() const; // how many unique keys i have
 
@@ -43,6 +45,9 @@ public:
 private:
     std::unordered_map<std::string, std::vector<std::unique_ptr<Record>>> m_data; // O(1) lookups test
     std::unique_ptr<persistence::WAL> m_wal;
+    std::string m_walPath;
+    std::string m_snapshotPath;
+    std::optional<uint64_t> m_snapshotEpoch;
 
     mutable std::shared_mutex m_mutex; // shared_mutex for multiple readers
 };

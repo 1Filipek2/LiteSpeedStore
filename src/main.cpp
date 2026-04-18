@@ -1,7 +1,6 @@
 #include "StorageEngine.hpp"
 #include "FastTrace.hpp"
 #include <thread>
-#include <vector>
 #include <iostream>
 
 void heavyOperation(StorageEngine& db) {

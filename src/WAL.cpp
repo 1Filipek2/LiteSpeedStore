@@ -1,35 +1,92 @@
 #include "persistence/WAL.hpp"
 #include "persistence/CRC32.hpp"
-
+#include <cerrno>
+#include <cstring>
 #include <fcntl.h>
-#include <unistd.h>
+#include <iostream>
+#include <stdexcept>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <iostream>
+#include <unistd.h>
 #include <vector>
-#include <cstring>
-#include <stdexcept>
-
 namespace persistence {
-
+namespace {
+bool writeExact(int fd, const void* data, size_t size) {
+    const auto* ptr = static_cast<const uint8_t*>(data);
+    size_t written = 0;
+    while (written < size) {
+        ssize_t rc = ::write(fd, ptr + written, size - written);
+        if (rc < 0) {
+            if (errno == EINTR) continue;
+            return false;
+        }
+        if (rc == 0) return false;
+        written += static_cast<size_t>(rc);
+    }
+    return true;
+}
+bool readExact(int fd, void* data, size_t size) {
+    auto* ptr = static_cast<uint8_t*>(data);
+    size_t readBytes = 0;
+    while (readBytes < size) {
+        ssize_t rc = ::read(fd, ptr + readBytes, size - readBytes);
+        if (rc < 0) {
+            if (errno == EINTR) continue;
+            return false;
+        }
+        if (rc == 0) return false;
+        readBytes += static_cast<size_t>(rc);
+    }
+    return true;
+}
+template <typename T>
+void appendPod(std::vector<uint8_t>& buffer, const T& value) {
+    const auto* ptr = reinterpret_cast<const uint8_t*>(&value);
+    buffer.insert(buffer.end(), ptr, ptr + sizeof(T));
+}
+template <typename T>
+bool readPod(int fd, T& value) {
+    return readExact(fd, &value, sizeof(T));
+}
+} // namespace
 WAL::WAL(const std::string& path) : m_path(path) {
     m_fd = ::open(m_path.c_str(), O_RDWR | O_CREAT | O_APPEND, 0644);
     if (m_fd == -1) {
         throw std::runtime_error("Failed to open WAL file: " + path);
     }
 }
-
 WAL::~WAL() {
     close();
 }
-
+uint64_t WAL::epoch() const {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_epoch;
+}
+void WAL::setEpoch(uint64_t epoch) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_epoch = epoch;
+}
+bool WAL::reset() {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_fd == -1) return false;
+    if (::fsync(m_fd) == -1) {
+        std::cerr << "WAL fsync before reset failed" << std::endl;
+    }
+    if (::ftruncate(m_fd, 0) == -1) {
+        return false;
+    }
+    if (::lseek(m_fd, 0, SEEK_SET) == -1) {
+        return false;
+    }
+    return true;
+}
 void WAL::close() {
+    std::lock_guard<std::mutex> lock(m_mutex);
     if (m_fd != -1) {
         ::close(m_fd);
         m_fd = -1;
     }
 }
-
 void WAL::sync() {
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_fd != -1) {
@@ -38,151 +95,118 @@ void WAL::sync() {
         }
     }
 }
-
 void WAL::append(RecordType type, const std::string& key, const std::string& value, int64_t timestamp) {
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_fd == -1) return;
-
-    LogEntry header;
-    header.timestamp_low = static_cast<uint32_t>(timestamp & 0xFFFFFFFF);
-    header.timestamp_high = static_cast<uint32_t>((timestamp >> 32) & 0xFFFFFFFF);
-    header.key_len = static_cast<uint32_t>(key.size());
-    header.value_len = static_cast<uint32_t>(value.size());
-    header.type = type;
-    header.crc = 0; // Placeholder
-
-    // Serialize to buffer to calculate CRC
+    const uint32_t timestamp_low = static_cast<uint32_t>(timestamp & 0xFFFFFFFF);
+    const uint32_t timestamp_high = static_cast<uint32_t>((timestamp >> 32) & 0xFFFFFFFF);
+    const uint64_t epoch = m_epoch;
+    const uint32_t key_len = static_cast<uint32_t>(key.size());
+    const uint32_t value_len = static_cast<uint32_t>(value.size());
+    const uint8_t type_byte = static_cast<uint8_t>(type);
     std::vector<uint8_t> buffer;
-    buffer.reserve(sizeof(LogEntry) + key.size() + value.size());
-    
-    const uint8_t* p = reinterpret_cast<const uint8_t*>(&header);
-    // Push header (skipping CRC first 4 bytes for calculation)
-    buffer.insert(buffer.end(), p + sizeof(uint32_t), p + sizeof(LogEntry));
-    
-    // Push Data
+    buffer.reserve(sizeof(timestamp_low) + sizeof(timestamp_high) + sizeof(epoch) + sizeof(key_len) + sizeof(value_len) + sizeof(type_byte) + key.size() + value.size());
+    appendPod(buffer, timestamp_low);
+    appendPod(buffer, timestamp_high);
+    appendPod(buffer, epoch);
+    appendPod(buffer, key_len);
+    appendPod(buffer, value_len);
+    appendPod(buffer, type_byte);
     buffer.insert(buffer.end(), key.begin(), key.end());
     buffer.insert(buffer.end(), value.begin(), value.end());
-
-    // Calculate CRC
-    uint32_t computed_crc = CRC32::calculate(buffer.data(), buffer.size());
-    
-    // Write CRC followed by buffer
-    if (::write(m_fd, &computed_crc, sizeof(computed_crc)) != sizeof(computed_crc)) {
+    const uint32_t computed_crc = CRC32::calculate(buffer.data(), buffer.size());
+    if (!writeExact(m_fd, &computed_crc, sizeof(computed_crc))) {
         throw std::runtime_error("Failed to write CRC to WAL");
     }
-    if (::write(m_fd, buffer.data(), buffer.size()) != static_cast<ssize_t>(buffer.size())) {
+    if (!buffer.empty() && !writeExact(m_fd, buffer.data(), buffer.size())) {
         throw std::runtime_error("Failed to write entry to WAL");
     }
-
-    // Explicit sync for durability (fsync discipline)
     if (::fsync(m_fd) == -1) {
         throw std::runtime_error("fsync failed");
     }
 }
-
-bool WAL::recover(std::function<void(RecordType, const std::string&, const std::string&, int64_t)> visitor) {
+bool WAL::recover(
+    std::function<void(RecordType, const std::string&, const std::string&, int64_t)> visitor,
+    std::optional<uint64_t> minEpochExclusive
+) {
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_fd == -1) return false;
-
-    // Reposition to start
     if (::lseek(m_fd, 0, SEEK_SET) == -1) {
         return false;
     }
-
     struct stat st;
     if (::fstat(m_fd, &st) == -1) return false;
-    
-    off_t file_size = st.st_size;
     off_t current_pos = 0;
     bool clean_eof = true;
-
-    while (current_pos < file_size) {
-        LogEntry header;
-        // Peek header
-        ssize_t header_size = sizeof(LogEntry);
-        // We read the CRC + rest
-        // But we need to read strictly to check for partial writes
-        
-        uint32_t stored_crc;
-        ssize_t r = ::read(m_fd, &stored_crc, sizeof(stored_crc));
-        if (r == 0) break; // EOF exactly at boundary
-        if (r != sizeof(stored_crc)) {
-             // Partial CRC write
-             clean_eof = false;
-             break;
-        }
-
-        // Read rest of header
-        // Reconstruct temp buffer for CRC check
-        std::vector<uint8_t> check_buffer;
-        
-        // We need to read the rest of the struct (sizeof(LogEntry) - 4)
-        uint8_t rest_of_header[sizeof(LogEntry) - 4];
-        r = ::read(m_fd, rest_of_header, sizeof(rest_of_header));
-        if (r != sizeof(rest_of_header)) {
+    while (current_pos < st.st_size) {
+        uint32_t stored_crc = 0;
+        if (!readPod(m_fd, stored_crc)) {
             clean_eof = false;
             break;
         }
-        
-        // Copy into our header struct for easy access
-        const uint8_t* ptr = rest_of_header;
-        std::memcpy(&header.timestamp_low, ptr, 4); ptr += 4;
-        std::memcpy(&header.timestamp_high, ptr, 4); ptr += 4;
-        std::memcpy(&header.key_len, ptr, 4); ptr += 4;
-        std::memcpy(&header.value_len, ptr, 4); ptr += 4;
-        std::memcpy(&header.type, ptr, 1);
-        
-        check_buffer.insert(check_buffer.end(), rest_of_header, rest_of_header + sizeof(rest_of_header));
-
-        // Read Key
-        std::string key(header.key_len, '\0');
-        if (header.key_len > 0) {
-            r = ::read(m_fd, &key[0], header.key_len);
-            if (r != header.key_len) {
+        uint32_t timestamp_low = 0;
+        uint32_t timestamp_high = 0;
+        uint64_t epoch = 0;
+        uint32_t key_len = 0;
+        uint32_t value_len = 0;
+        uint8_t type_byte = 0;
+        if (!readPod(m_fd, timestamp_low) ||
+            !readPod(m_fd, timestamp_high) ||
+            !readPod(m_fd, epoch) ||
+            !readPod(m_fd, key_len) ||
+            !readPod(m_fd, value_len) ||
+            !readPod(m_fd, type_byte)) {
+            clean_eof = false;
+            break;
+        }
+        std::vector<uint8_t> check_buffer;
+        check_buffer.reserve(sizeof(timestamp_low) + sizeof(timestamp_high) + sizeof(epoch) + sizeof(key_len) + sizeof(value_len) + sizeof(type_byte) + key_len + value_len);
+        appendPod(check_buffer, timestamp_low);
+        appendPod(check_buffer, timestamp_high);
+        appendPod(check_buffer, epoch);
+        appendPod(check_buffer, key_len);
+        appendPod(check_buffer, value_len);
+        appendPod(check_buffer, type_byte);
+        std::string key(key_len, '\0');
+        if (key_len > 0) {
+            if (!readExact(m_fd, &key[0], key_len)) {
                 clean_eof = false;
                 break;
             }
             check_buffer.insert(check_buffer.end(), key.begin(), key.end());
         }
-
-        // Read Value
-        std::string value(header.value_len, '\0');
-        if (header.value_len > 0) {
-            r = ::read(m_fd, &value[0], header.value_len);
-            if (r != header.value_len) {
+        std::string value(value_len, '\0');
+        if (value_len > 0) {
+            if (!readExact(m_fd, &value[0], value_len)) {
                 clean_eof = false;
                 break;
             }
             check_buffer.insert(check_buffer.end(), value.begin(), value.end());
         }
-
-        // Verify CRC
-        uint32_t calculated = CRC32::calculate(check_buffer.data(), check_buffer.size());
+        const uint32_t calculated = CRC32::calculate(check_buffer.data(), check_buffer.size());
         if (calculated != stored_crc) {
             std::cerr << "CRC Mismatch at offset " << current_pos << "! Corrupted entry." << std::endl;
             clean_eof = false;
-            break; // Stop replay
+            break;
         }
-
-        // Valid entry, callback
-        int64_t ts = (static_cast<int64_t>(header.timestamp_high) << 32) | header.timestamp_low;
-        visitor(header.type, key, value, ts);
-
-        // Update successful position
+        if (!minEpochExclusive || epoch > *minEpochExclusive) {
+            const int64_t ts = (static_cast<int64_t>(timestamp_high) << 32) | timestamp_low;
+            visitor(static_cast<RecordType>(type_byte), key, value, ts);
+        }
         current_pos = ::lseek(m_fd, 0, SEEK_CUR);
+        if (current_pos == static_cast<off_t>(-1)) {
+            clean_eof = false;
+            break;
+        }
     }
-
     if (!clean_eof) {
         std::cerr << "Detected corruption or partial write at end of WAL. Truncating to " << current_pos << std::endl;
         if (::ftruncate(m_fd, current_pos) == -1) {
             std::cerr << "Failed to truncate WAL!" << std::endl;
             return false;
         }
-        // Seek back to end for future writes
         ::lseek(m_fd, 0, SEEK_END);
     }
-
     return true;
 }
-
 } // namespace persistence

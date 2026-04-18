@@ -1,10 +1,10 @@
 #pragma once
 
-#include <string>
+#include <cstdint>
 #include <functional>
-#include <vector>
-#include <memory>
 #include <mutex>
+#include <optional>
+#include <string>
 
 namespace persistence {
 
@@ -17,6 +17,7 @@ struct LogEntry {
     uint32_t crc;
     uint32_t timestamp_low; 
     uint32_t timestamp_high;
+    uint64_t epoch;
     uint32_t key_len;
     uint32_t value_len;
     RecordType type;
@@ -33,10 +34,16 @@ public:
     WAL& operator=(const WAL&) = delete;
 
     void append(RecordType type, const std::string& key, const std::string& value, int64_t timestamp);
-    
+    [[nodiscard]] uint64_t epoch() const;
+    void setEpoch(uint64_t epoch);
+    bool reset();
+
     // Iterates over valid entries in the log. 
     // Returns true if recovery was clean, false if some corruption was encountered (and truncated).
-    bool recover(std::function<void(RecordType, const std::string&, const std::string&, int64_t)> visitor);
+    bool recover(
+        std::function<void(RecordType, const std::string&, const std::string&, int64_t)> visitor,
+        std::optional<uint64_t> minEpochExclusive = std::nullopt
+    );
 
     void sync();
     void close();
@@ -44,7 +51,8 @@ public:
 private:
     std::string m_path;
     int m_fd = -1;
-    std::mutex m_mutex;
+    uint64_t m_epoch = 0;
+    mutable std::mutex m_mutex;
 };
 
 } // namespace persistence
