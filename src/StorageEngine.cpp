@@ -86,7 +86,8 @@ void StorageEngine::recover() {
 }
 void StorageEngine::set(const std::string& key, std::string value, double duration) {
     std::unique_lock<std::shared_mutex> lock(m_mutex);
-    auto now = std::chrono::system_clock::now().time_since_epoch().count();
+    auto now = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
     if (m_wal) {
         std::string blob = serialize(duration, value);
         m_wal->append(persistence::RecordType::PUT, key, blob, now);
@@ -135,7 +136,8 @@ bool StorageEngine::snapshot() {
 bool StorageEngine::remove(const std::string& key) {
     std::unique_lock<std::shared_mutex> lock(m_mutex);
     if (m_wal) {
-        auto now = std::chrono::system_clock::now().time_since_epoch().count();
+        auto now = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
         m_wal->append(persistence::RecordType::DELETE, key, "", now);
     }
     return m_data.erase(key) > 0;
