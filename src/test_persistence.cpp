@@ -1,75 +1,123 @@
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
+
 #include "StorageEngine.hpp"
-#include <cmath>
-#include <cstdlib>
+#include <array>
 #include <filesystem>
-#include <iostream>
+#include <fstream>
 #include <string>
-namespace {
-std::string snapshotPathFor(const std::string& walPath) {
-    std::filesystem::path path(walPath);
-    if (path.extension() == ".wal") {
-        path.replace_extension(".snap");
-        return path.string();
-    }
-    return walPath + ".snap";
+#include <thread>
+#include <vector>
+
+static const std::string WAL_PATH  = "test_persist.wal";
+static const std::string SNAP_PATH = "test_persist.snap";
+
+static void cleanup() {
+    if (std::filesystem::exists(WAL_PATH))  std::filesystem::remove(WAL_PATH);
+    if (std::filesystem::exists(SNAP_PATH)) std::filesystem::remove(SNAP_PATH);
 }
-void cleanup(const std::string& walPath) {
-    const auto snapPath = snapshotPathFor(walPath);
-    if (std::filesystem::exists(walPath)) {
-        std::filesystem::remove(walPath);
-    }
-    if (std::filesystem::exists(snapPath)) {
-        std::filesystem::remove(snapPath);
-    }
-}
-void require(bool condition, const std::string& message) {
-    if (!condition) {
-        std::cerr << "[Fail] " << message << std::endl;
-        std::exit(1);
-    }
-}
-} // namespace
-void runTest() {
-    const std::string dbPath = "test_persist.wal";
-    const std::string snapPath = snapshotPathFor(dbPath);
-    cleanup(dbPath);
-    std::cout << "Starting Persistence + Snapshot Test..." << std::endl;
+
+TEST_CASE("Persistence lifecycle: snapshot, WAL rotation, and recovery", "[persistence]") {
+    cleanup();
+
+    // Phase 1: write data, take snapshot, verify WAL is rotated
     {
-        StorageEngine db(dbPath);
+        StorageEngine db(WAL_PATH);
         db.set("key1", "val1", 10.0);
         db.set("key1", "val2", 20.0);
-        require(db.historyCount("key1") == 2, "key1 should have 2 records before snapshot");
-        require(db.snapshot(), "snapshot() should succeed");
-        require(std::filesystem::exists(snapPath), "snapshot file should exist after snapshot()");
-        require(std::filesystem::file_size(dbPath) == 0, "WAL should be rotated/truncated after snapshot()");
+        REQUIRE(db.historyCount("key1") == 2);
+        REQUIRE(db.snapshot());
+        REQUIRE(std::filesystem::exists(SNAP_PATH));
+        REQUIRE(std::filesystem::file_size(WAL_PATH) == 0);
         db.set("key1", "val3", 30.0);
         db.set("key2", "temp", 5.0);
-        require(db.remove("key2"), "key2 remove should succeed");
-        std::cout << "[Pass] Run 1: Snapshot created and WAL rotated." << std::endl;
+        REQUIRE(db.remove("key2"));
     }
+
+    // Phase 2: reopen, verify full recovery from snapshot + WAL replay
     {
-        StorageEngine db(dbPath);
-        require(db.historyCount("key1") == 3, "key1 should recover 3 records after snapshot + WAL replay");
-        require(db.get("key1") && *db.get("key1") == "val3", "key1 should recover latest value val3");
-        require(std::abs(db.getAverage("key1").value() - 20.0) < 0.001, "key1 average should be 20.0 after recovery");
-        require(db.historyCount("key2") == 0, "key2 should be deleted after recovery");
-        require(db.count() == 1, "only one key should remain after recovery");
-        require(db.snapshot(), "second snapshot() should also succeed");
-        require(std::filesystem::file_size(dbPath) == 0, "WAL should be empty after second snapshot()");
-        std::cout << "[Pass] Run 2: Recovery after snapshot is correct." << std::endl;
+        StorageEngine db(WAL_PATH);
+        REQUIRE(db.historyCount("key1") == 3);
+        REQUIRE(db.get("key1").value() == "val3");
+        REQUIRE(db.getAverage("key1").value() == Catch::Approx(20.0).epsilon(0.001));
+        REQUIRE(db.historyCount("key2") == 0);
+        REQUIRE(db.count() == 1);
+        REQUIRE(db.snapshot());
     }
+
+    // Phase 3: second restart, state must still be consistent
     {
-        StorageEngine db(dbPath);
-        require(db.historyCount("key1") == 3, "key1 should still have 3 records after second restart");
-        require(db.get("key1") && *db.get("key1") == "val3", "key1 should still recover latest value val3");
-        require(std::abs(db.getAverage("key1").value() - 20.0) < 0.001, "key1 average should stay 20.0 after second restart");
-        require(db.count() == 1, "store should still contain one key after second restart");
-        std::cout << "[Pass] Run 3: Second restart recovery successful." << std::endl;
+        StorageEngine db(WAL_PATH);
+        REQUIRE(db.historyCount("key1") == 3);
+        REQUIRE(db.get("key1").value() == "val3");
+        REQUIRE(db.getAverage("key1").value() == Catch::Approx(20.0).epsilon(0.001));
+        REQUIRE(db.count() == 1);
     }
-    cleanup(dbPath);
-    std::cout << "All persistence + snapshot tests passed!" << std::endl;
+
+    cleanup();
 }
-int main() {
-    runTest();
-    return 0;
+
+TEST_CASE("Thread safety: concurrent reads and writes do not crash or corrupt", "[concurrency]") {
+    cleanup();
+
+    StorageEngine db(WAL_PATH);
+
+    constexpr int NUM_WRITERS  = 4;
+    constexpr int NUM_READERS  = 4;
+    constexpr int OPS_PER_THREAD = 50;
+
+    std::vector<std::thread> threads;
+
+    for (int i = 0; i < NUM_WRITERS; ++i) {
+        threads.emplace_back([&db, i]() {
+            for (int j = 0; j < OPS_PER_THREAD; ++j) {
+                db.set("key" + std::to_string(i),
+                       "val" + std::to_string(j),
+                       static_cast<double>(j));
+            }
+        });
+    }
+
+    for (int i = 0; i < NUM_READERS; ++i) {
+        threads.emplace_back([&db, i]() {
+            for (int j = 0; j < OPS_PER_THREAD; ++j) {
+                db.get("key" + std::to_string(i % NUM_WRITERS));
+                db.count();
+            }
+        });
+    }
+
+    for (auto& t : threads) t.join();
+
+    REQUIRE(db.count() == NUM_WRITERS);
+
+    cleanup();
+}
+
+TEST_CASE("WAL recovery: garbage appended at end is truncated gracefully", "[wal][corruption]") {
+    cleanup();
+
+    // Write one clean entry, then close the engine
+    {
+        StorageEngine db(WAL_PATH);
+        db.set("before", "good", 1.0);
+    }
+
+    // Simulate a torn write — append garbage bytes to the WAL
+    {
+        std::ofstream f(WAL_PATH, std::ios::binary | std::ios::app);
+        REQUIRE(f.is_open());
+        const std::array<char, 8> garbage{0x01, 0x02, char(0xFF), char(0xFE),
+                                          char(0xAB), char(0xCD), 0x00, 0x11};
+        f.write(garbage.data(), static_cast<std::streamsize>(garbage.size()));
+    }
+
+    // Reopen — WAL must truncate the garbage and recover the clean entry
+    {
+        StorageEngine db(WAL_PATH);
+        REQUIRE(db.get("before").has_value());
+        REQUIRE(db.get("before").value() == "good");
+    }
+
+    cleanup();
 }

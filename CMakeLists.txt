@@ -7,6 +7,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Threads REQUIRED)
 enable_testing()
 
+set(LITESPEED_WARNING_FLAGS -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Werror)
+
+include(FetchContent)
+FetchContent_Declare(
+    Catch2
+    GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+    GIT_TAG        v3.5.4
+)
+FetchContent_MakeAvailable(Catch2)
+
 option(SANITIZE_ADDRESS "Build with AddressSanitizer + UBSan" OFF)
 option(SANITIZE_THREAD  "Build with ThreadSanitizer"          OFF)
 
@@ -27,14 +37,17 @@ add_library(litespeed_core
 )
 target_include_directories(litespeed_core PUBLIC include)
 target_link_libraries(litespeed_core PUBLIC Threads::Threads)
+target_compile_options(litespeed_core PRIVATE ${LITESPEED_WARNING_FLAGS})
 
 add_executable(LiteSpeedStore
     src/main.cpp
 )
 target_link_libraries(LiteSpeedStore PRIVATE litespeed_core)
+target_compile_options(LiteSpeedStore PRIVATE ${LITESPEED_WARNING_FLAGS})
 
 add_executable(TestPersistence
     src/test_persistence.cpp
 )
-target_link_libraries(TestPersistence PRIVATE litespeed_core)
+target_link_libraries(TestPersistence PRIVATE litespeed_core Catch2::Catch2WithMain)
+target_compile_options(TestPersistence PRIVATE ${LITESPEED_WARNING_FLAGS})
 add_test(NAME TestPersistence COMMAND TestPersistence)
