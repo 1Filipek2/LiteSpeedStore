@@ -26,6 +26,9 @@ public:
 
     explicit StorageEngine(const std::string& dbPath = "litespeed.wal",
                            size_t maxHistoryPerKey = kUnlimitedHistory);
+
+    // In-memory only — no WAL, no persistence. Suitable for profiling/metrics.
+    static StorageEngine makeInMemory(size_t maxHistoryPerKey = kUnlimitedHistory);
     
     StorageEngine(const StorageEngine&) = delete;
     StorageEngine& operator=(const StorageEngine&) = delete;
@@ -42,6 +45,9 @@ public:
     void recover();
 
 private:
+    struct InMemoryTag {};
+    StorageEngine(InMemoryTag, size_t maxHistoryPerKey);
+
     std::unordered_map<std::string, std::vector<std::unique_ptr<Record>>> m_data;
     std::unique_ptr<persistence::WAL> m_wal;
     std::string m_walPath;

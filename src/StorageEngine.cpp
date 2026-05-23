@@ -61,6 +61,13 @@ StorageEngine::StorageEngine(const std::string& dbPath, size_t maxHistoryPerKey)
       m_maxHistoryPerKey(maxHistoryPerKey) {
     recover();
 }
+
+StorageEngine::StorageEngine(InMemoryTag, size_t maxHistoryPerKey)
+    : m_maxHistoryPerKey(maxHistoryPerKey) {}
+
+StorageEngine StorageEngine::makeInMemory(size_t maxHistoryPerKey) {
+    return StorageEngine(InMemoryTag{}, maxHistoryPerKey);
+}
 void StorageEngine::recover() {
     std::unique_lock<std::shared_mutex> lock(m_mutex);
     m_data.clear();

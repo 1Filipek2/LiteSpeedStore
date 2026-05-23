@@ -10,7 +10,7 @@ void heavyOperation(StorageEngine& db) {
 }
 
 int main() {
-    StorageEngine metrics;
+    StorageEngine metrics = StorageEngine::makeInMemory();
 
     std::cout << "Starting application with FastTrace..." << std::endl;
 
