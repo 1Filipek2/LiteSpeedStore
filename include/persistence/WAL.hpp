@@ -13,17 +13,6 @@ enum class RecordType : uint8_t {
     DELETE = 2
 };
 
-struct LogEntry {
-    uint32_t crc;
-    uint32_t timestamp_low; 
-    uint32_t timestamp_high;
-    uint64_t epoch;
-    uint32_t key_len;
-    uint32_t value_len;
-    RecordType type;
-    // Followed by key_data and value_data
-};
-
 class WAL {
 public:
     explicit WAL(const std::string& path);

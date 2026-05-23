@@ -8,20 +8,18 @@ class Timer {
 public:
     using Clock = std::chrono::high_resolution_clock;
 
-    Timer(std::string name, std::function<void(double)> callback)
-        : m_name(std::move(name)), m_callback(std::move(callback)) {
+    Timer(std::string /*name*/, std::function<void(double)> callback)
+        : m_callback(std::move(callback)) {
         m_start = Clock::now();
     }
 
-    // RAII
-    ~Timer() { 
+    ~Timer() {
         auto end = Clock::now();
         std::chrono::duration<double, std::milli> elapsed = end - m_start;
-        m_callback(elapsed.count()); // res to -> engine
+        m_callback(elapsed.count());
     }
 
 private:
-    std::string m_name;
     Clock::time_point m_start;
     std::function<void(double)> m_callback;
 };
