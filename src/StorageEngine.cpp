@@ -3,7 +3,7 @@
 #include <chrono>
 #include <cstring>
 #include <filesystem>
-#include <iostream>
+#include <stdexcept>
 #include <utility>
 namespace {
 std::string serialize(double duration, const std::string& value) {
@@ -54,11 +54,11 @@ void importSnapshotState(
     }
 }
 } // namespace
-StorageEngine::StorageEngine() : StorageEngine("litespeed.wal") {}
-StorageEngine::StorageEngine(const std::string& dbPath)
+StorageEngine::StorageEngine(const std::string& dbPath, size_t maxHistoryPerKey)
     : m_wal(std::make_unique<persistence::WAL>(dbPath)),
       m_walPath(dbPath),
-      m_snapshotPath(makeSnapshotPath(dbPath)) {
+      m_snapshotPath(makeSnapshotPath(dbPath)),
+      m_maxHistoryPerKey(maxHistoryPerKey) {
     recover();
 }
 void StorageEngine::recover() {
@@ -73,16 +73,14 @@ void StorageEngine::recover() {
     } else {
         m_wal->setEpoch(0);
     }
-    if (!m_wal->recover([this](persistence::RecordType type, const std::string& key, const std::string& blob, int64_t timestamp) {
-            if (type == persistence::RecordType::PUT) {
-                auto [duration, value] = deserialize(blob);
-                m_data[key].push_back(std::make_unique<Record>(std::move(value), timestamp, duration));
-            } else if (type == persistence::RecordType::DELETE) {
-                m_data.erase(key);
-            }
-        }, m_snapshotEpoch)) {
-        std::cerr << "WAL recovery reported corruption or truncation." << std::endl;
-    }
+    m_wal->recover([this](persistence::RecordType type, const std::string& key, const std::string& blob, int64_t timestamp) {
+        if (type == persistence::RecordType::PUT) {
+            auto [duration, value] = deserialize(blob);
+            m_data[key].push_back(std::make_unique<Record>(std::move(value), timestamp, duration));
+        } else if (type == persistence::RecordType::DELETE) {
+            m_data.erase(key);
+        }
+    }, m_snapshotEpoch);
 }
 void StorageEngine::set(const std::string& key, std::string value, double duration) {
     std::unique_lock<std::shared_mutex> lock(m_mutex);
@@ -92,7 +90,12 @@ void StorageEngine::set(const std::string& key, std::string value, double durati
         std::string blob = serialize(duration, value);
         m_wal->append(persistence::RecordType::PUT, key, blob, now);
     }
-    m_data[key].push_back(std::make_unique<Record>(std::move(value), now, duration));
+    auto& history = m_data[key];
+    if (m_maxHistoryPerKey != StorageEngine::kUnlimitedHistory &&
+        history.size() >= m_maxHistoryPerKey) {
+        history.erase(history.begin());
+    }
+    history.push_back(std::make_unique<Record>(std::move(value), now, duration));
 }
 std::optional<std::string> StorageEngine::get(const std::string& key) const {
     std::shared_lock<std::shared_mutex> lock(m_mutex);
@@ -114,24 +117,22 @@ std::optional<double> StorageEngine::getAverage(const std::string& key) const {
     }
     return std::nullopt;
 }
-bool StorageEngine::snapshot() {
+void StorageEngine::snapshot() {
     std::unique_lock<std::shared_mutex> lock(m_mutex);
     if (!m_wal) {
-        return false;
+        throw std::runtime_error("snapshot() called on engine with no WAL");
     }
     persistence::SnapshotImage image;
     image.epoch = m_wal->epoch();
     image.state = exportSnapshotState(m_data);
     if (!persistence::Snapshot::save(m_snapshotPath, image)) {
-        return false;
+        throw std::runtime_error("Failed to write snapshot to disk: " + m_snapshotPath);
     }
     m_snapshotEpoch = image.epoch;
     m_wal->setEpoch(image.epoch + 1);
-    const bool resetOk = m_wal->reset();
-    if (!resetOk) {
-        std::cerr << "WAL rotation failed; snapshot is still valid, but old log entries remain on disk." << std::endl;
+    if (!m_wal->reset()) {
+        throw std::runtime_error("WAL rotation failed after snapshot: " + m_walPath);
     }
-    return resetOk;
 }
 bool StorageEngine::remove(const std::string& key) {
     std::unique_lock<std::shared_mutex> lock(m_mutex);

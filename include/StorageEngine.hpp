@@ -22,9 +22,10 @@ struct Record {
 
 class StorageEngine {
 public:
-    // Default constructor uses default WAL path "litespeed.wal"
-    StorageEngine();
-    explicit StorageEngine(const std::string& dbPath);
+    static constexpr size_t kUnlimitedHistory = 0;
+
+    explicit StorageEngine(const std::string& dbPath = "litespeed.wal",
+                           size_t maxHistoryPerKey = kUnlimitedHistory);
     
     StorageEngine(const StorageEngine&) = delete;
     StorageEngine& operator=(const StorageEngine&) = delete;
@@ -33,21 +34,20 @@ public:
     std::optional<std::string> get(const std::string& key) const;
     bool remove(const std::string& key);
     std::optional<double> getAverage(const std::string& key) const;
-    bool snapshot();
+    // Throws std::runtime_error on failure
+    void snapshot();
 
-    size_t count() const; // how many unique keys i have
-
+    size_t count() const;
     size_t historyCount(const std::string& key) const;
-
-    // Recovers state from disk
     void recover();
 
 private:
-    std::unordered_map<std::string, std::vector<std::unique_ptr<Record>>> m_data; // O(1) lookups test
+    std::unordered_map<std::string, std::vector<std::unique_ptr<Record>>> m_data;
     std::unique_ptr<persistence::WAL> m_wal;
     std::string m_walPath;
     std::string m_snapshotPath;
     std::optional<uint64_t> m_snapshotEpoch;
 
-    mutable std::shared_mutex m_mutex; // shared_mutex for multiple readers
+    size_t m_maxHistoryPerKey;
+    mutable std::shared_mutex m_mutex;
 };

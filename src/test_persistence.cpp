@@ -26,7 +26,7 @@ TEST_CASE("Persistence lifecycle: snapshot, WAL rotation, and recovery", "[persi
         db.set("key1", "val1", 10.0);
         db.set("key1", "val2", 20.0);
         REQUIRE(db.historyCount("key1") == 2);
-        REQUIRE(db.snapshot());
+        REQUIRE_NOTHROW(db.snapshot());
         REQUIRE(std::filesystem::exists(SNAP_PATH));
         REQUIRE(std::filesystem::file_size(WAL_PATH) == 0);
         db.set("key1", "val3", 30.0);
@@ -42,7 +42,7 @@ TEST_CASE("Persistence lifecycle: snapshot, WAL rotation, and recovery", "[persi
         REQUIRE(db.getAverage("key1").value() == Catch::Approx(20.0).epsilon(0.001));
         REQUIRE(db.historyCount("key2") == 0);
         REQUIRE(db.count() == 1);
-        REQUIRE(db.snapshot());
+        REQUIRE_NOTHROW(db.snapshot());
     }
 
     // Phase 3: second restart, state must still be consistent
@@ -90,6 +90,24 @@ TEST_CASE("Thread safety: concurrent reads and writes do not crash or corrupt", 
     for (auto& t : threads) t.join();
 
     REQUIRE(db.count() == NUM_WRITERS);
+
+    cleanup();
+}
+
+TEST_CASE("History cap: oldest record is evicted when limit is reached", "[history]") {
+    cleanup();
+
+    StorageEngine db(WAL_PATH, 3);
+
+    db.set("key", "val1", 1.0);
+    db.set("key", "val2", 2.0);
+    db.set("key", "val3", 3.0);
+    REQUIRE(db.historyCount("key") == 3);
+
+    // 4th write evicts the oldest — count stays at 3
+    db.set("key", "val4", 4.0);
+    REQUIRE(db.historyCount("key") == 3);
+    REQUIRE(db.get("key").value() == "val4");
 
     cleanup();
 }
