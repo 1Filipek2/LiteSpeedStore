@@ -101,7 +101,7 @@ std::optional<std::string> StorageEngine::get(const std::string& key) const {
     }
     return std::nullopt;
 }
-double StorageEngine::getAverage(const std::string& key) const {
+std::optional<double> StorageEngine::getAverage(const std::string& key) const {
     std::shared_lock<std::shared_mutex> lock(m_mutex);
     auto it = m_data.find(key);
     if (it != m_data.end() && !it->second.empty()) {
@@ -111,7 +111,7 @@ double StorageEngine::getAverage(const std::string& key) const {
         }
         return sum / static_cast<double>(it->second.size());
     }
-    return 0.0;
+    return std::nullopt;
 }
 bool StorageEngine::snapshot() {
     std::unique_lock<std::shared_mutex> lock(m_mutex);

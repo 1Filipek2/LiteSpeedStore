@@ -32,7 +32,7 @@ public:
     void set(const std::string& key, std::string value, double duration);
     std::optional<std::string> get(const std::string& key) const;
     bool remove(const std::string& key);
-    double getAverage(const std::string& key) const;
+    std::optional<double> getAverage(const std::string& key) const;
     bool snapshot();
 
     size_t count() const; // how many unique keys i have

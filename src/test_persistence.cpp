@@ -51,7 +51,7 @@ void runTest() {
         StorageEngine db(dbPath);
         require(db.historyCount("key1") == 3, "key1 should recover 3 records after snapshot + WAL replay");
         require(db.get("key1") && *db.get("key1") == "val3", "key1 should recover latest value val3");
-        require(std::abs(db.getAverage("key1") - 20.0) < 0.001, "key1 average should be 20.0 after recovery");
+        require(std::abs(db.getAverage("key1").value() - 20.0) < 0.001, "key1 average should be 20.0 after recovery");
         require(db.historyCount("key2") == 0, "key2 should be deleted after recovery");
         require(db.count() == 1, "only one key should remain after recovery");
         require(db.snapshot(), "second snapshot() should also succeed");
@@ -62,7 +62,7 @@ void runTest() {
         StorageEngine db(dbPath);
         require(db.historyCount("key1") == 3, "key1 should still have 3 records after second restart");
         require(db.get("key1") && *db.get("key1") == "val3", "key1 should still recover latest value val3");
-        require(std::abs(db.getAverage("key1") - 20.0) < 0.001, "key1 average should stay 20.0 after second restart");
+        require(std::abs(db.getAverage("key1").value() - 20.0) < 0.001, "key1 average should stay 20.0 after second restart");
         require(db.count() == 1, "store should still contain one key after second restart");
         std::cout << "[Pass] Run 3: Second restart recovery successful." << std::endl;
     }

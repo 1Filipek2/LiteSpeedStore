@@ -24,7 +24,7 @@ int main() {
 
     std::cout << "\nMeasured metrics in StorageEngine:" << std::endl;
     std::cout << "Operation time: " << metrics.get("HeavyOperation").value_or("N/A") << std::endl;
-    std::cout << "Average time: " << metrics.getAverage("HeavyOperation") << " ms" << std::endl;
+    std::cout << "Average time: " << metrics.getAverage("HeavyOperation").value_or(0.0) << " ms" << std::endl;
     std::cout << "Total runtime: " << metrics.get("TotalMainRuntime").value_or("N/A") << std::endl;
 
     return 0;
