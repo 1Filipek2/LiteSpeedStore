@@ -56,9 +56,9 @@ void importSnapshotState(
 } // namespace
 StorageEngine::StorageEngine() : StorageEngine("litespeed.wal") {}
 StorageEngine::StorageEngine(const std::string& dbPath)
-    : m_walPath(dbPath),
-      m_snapshotPath(makeSnapshotPath(dbPath)),
-      m_wal(std::make_unique<persistence::WAL>(dbPath)) {
+    : m_wal(std::make_unique<persistence::WAL>(dbPath)),
+      m_walPath(dbPath),
+      m_snapshotPath(makeSnapshotPath(dbPath)) {
     recover();
 }
 void StorageEngine::recover() {
@@ -109,7 +109,7 @@ double StorageEngine::getAverage(const std::string& key) const {
         for (const auto& record : it->second) {
             sum += record->duration;
         }
-        return sum / it->second.size();
+        return sum / static_cast<double>(it->second.size());
     }
     return 0.0;
 }
