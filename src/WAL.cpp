@@ -159,6 +159,13 @@ bool WAL::recover(
             clean_eof = false;
             break;
         }
+        // reject entries with unreasonably large fields before allocating memory.
+        // a corrupted entry could otherwise trigger a multi-GiB allocation before CRC is checked.
+        constexpr uint32_t MAX_FIELD_SIZE = 1u << 20; // 1 MiB
+        if (key_len > MAX_FIELD_SIZE || value_len > MAX_FIELD_SIZE) {
+            clean_eof = false;
+            break;
+        }
         std::vector<uint8_t> check_buffer;
         check_buffer.reserve(sizeof(timestamp_low) + sizeof(timestamp_high) + sizeof(epoch) + sizeof(key_len) + sizeof(value_len) + sizeof(type_byte) + key_len + value_len);
         appendPod(check_buffer, timestamp_low);
