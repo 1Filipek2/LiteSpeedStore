@@ -51,3 +51,9 @@ add_executable(TestPersistence
 target_link_libraries(TestPersistence PRIVATE litespeed_core Catch2::Catch2WithMain)
 target_compile_options(TestPersistence PRIVATE ${LITESPEED_WARNING_FLAGS})
 add_test(NAME TestPersistence COMMAND TestPersistence)
+
+add_executable(Benchmark
+    benchmark/bench_litespeed.cpp
+)
+target_link_libraries(Benchmark PRIVATE litespeed_core)
+target_compile_options(Benchmark PRIVATE ${LITESPEED_WARNING_FLAGS})

@@ -69,5 +69,26 @@ cmake --build cmake-build-debug -j 4
 ctest --test-dir cmake-build-debug --output-on-failure
 ```
 
+## Benchmarks
+
+Hand-rolled timing benchmark using `StorageEngine::makeInMemory()` (no WAL, no fsync).  
+Build: `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --target Benchmark`  
+Run: `./build/Benchmark`
+
+| Scenario | Ops | Time | Throughput |
+|---|---|---|---|
+| `set()` single-thread | 500 000 | 85.8 ms | **5 830 222 ops/s** |
+| `get()` single-thread | 500 000 | 11.6 ms | **43 108 841 ops/s** |
+| `getAverage()` single-thread (100-entry history) | 500 000 | 51.3 ms | **9 747 163 ops/s** |
+| Mixed 4 writers + 4 readers (concurrent) | 1 600 000 | 598.7 ms | **2 672 245 ops/s** |
+
+*Measured on Linux x86-64, Release build (`-O3`), in-memory store.*
+
+**Key observations:**
+
+- `get()` is **7.4× faster** than `set()` — `shared_mutex` correctly allows concurrent reads while serialising only writes.
+- Concurrent throughput drops vs. single-thread because 4 writers each acquire a `unique_lock`, blocking all readers. This is the expected cost of write-heavy workloads; a read-heavy workload would scale much better.
+- WAL-backed `set()` throughput is bounded by `fsync()` latency (~100–200 ops/s on HDD, ~10k–50k ops/s on NVMe SSD). Group-commit (batching N writes before one `fsync()`) is the standard fix — see the [group-commit branch](../../issues) for a planned implementation.
+
 I plan to extend this project further in the future as I experiment with more features and optimizations.
 <img width="1214" height="162" alt="image" src="https://github.com/user-attachments/assets/07ed081f-525f-4ea5-90ff-4c527e48c40f" />
