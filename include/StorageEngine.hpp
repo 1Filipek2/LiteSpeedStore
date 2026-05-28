@@ -48,7 +48,7 @@ private:
     struct InMemoryTag {};
     StorageEngine(InMemoryTag, size_t maxHistoryPerKey);
 
-    std::unordered_map<std::string, std::vector<std::unique_ptr<Record>>> m_data;
+    std::unordered_map<std::string, std::vector<Record>> m_data;
     std::unique_ptr<persistence::WAL> m_wal;
     std::string m_walPath;
     std::string m_snapshotPath;

@@ -28,28 +28,28 @@ std::string makeSnapshotPath(const std::string& walPath) {
     return walPath + ".snap";
 }
 persistence::SnapshotState exportSnapshotState(
-    const std::unordered_map<std::string, std::vector<std::unique_ptr<Record>>>& data
+    const std::unordered_map<std::string, std::vector<Record>>& data
 ) {
     persistence::SnapshotState snapshotState;
     for (const auto& [key, history] : data) {
         auto& snapshotHistory = snapshotState[key];
         snapshotHistory.reserve(history.size());
         for (const auto& record : history) {
-            snapshotHistory.push_back(persistence::SnapshotRecord{record->value, record->duration, record->timestamp});
+            snapshotHistory.push_back(persistence::SnapshotRecord{record.value, record.duration, record.timestamp});
         }
     }
     return snapshotState;
 }
 void importSnapshotState(
     const persistence::SnapshotState& snapshotState,
-    std::unordered_map<std::string, std::vector<std::unique_ptr<Record>>>& data
+    std::unordered_map<std::string, std::vector<Record>>& data
 ) {
     data.clear();
     for (const auto& [key, history] : snapshotState) {
         auto& records = data[key];
         records.reserve(history.size());
         for (const auto& record : history) {
-            records.push_back(std::make_unique<Record>(record.value, record.timestamp, record.duration));
+            records.emplace_back(record.value, record.timestamp, record.duration);
         }
     }
 }
@@ -83,7 +83,7 @@ void StorageEngine::recover() {
     m_wal->recover([this](persistence::RecordType type, const std::string& key, const std::string& blob, int64_t timestamp) {
         if (type == persistence::RecordType::PUT) {
             auto [duration, value] = deserialize(blob);
-            m_data[key].push_back(std::make_unique<Record>(std::move(value), timestamp, duration));
+            m_data[key].emplace_back(std::move(value), timestamp, duration);
         } else if (type == persistence::RecordType::DELETE) {
             m_data.erase(key);
         }
@@ -102,13 +102,13 @@ void StorageEngine::set(const std::string& key, std::string value, double durati
         history.size() >= m_maxHistoryPerKey) {
         history.erase(history.begin());
     }
-    history.push_back(std::make_unique<Record>(std::move(value), now, duration));
+    history.emplace_back(std::move(value), now, duration);
 }
 std::optional<std::string> StorageEngine::get(const std::string& key) const {
     std::shared_lock<std::shared_mutex> lock(m_mutex);
     auto it = m_data.find(key);
     if (it != m_data.end() && !it->second.empty()) {
-        return it->second.back()->value;
+        return it->second.back().value;
     }
     return std::nullopt;
 }
@@ -118,7 +118,7 @@ std::optional<double> StorageEngine::getAverage(const std::string& key) const {
     if (it != m_data.end() && !it->second.empty()) {
         double sum = 0.0;
         for (const auto& record : it->second) {
-            sum += record->duration;
+            sum += record.duration;
         }
         return sum / static_cast<double>(it->second.size());
     }

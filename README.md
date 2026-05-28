@@ -5,7 +5,7 @@ I built this project to get my hands dirty with modern C++ and to see how fast I
 ## What I was practicing
 
 - **Modern C++ (17+)**: Using `std::optional`.
-- **Speed & Efficiency**: Playing with move semantics and `std::unique_ptr` to keep things snappy and avoid useless copying.
+- **Speed & Efficiency**: Playing with move semantics and value-type `Record` storage for cache-friendly iteration.
 - **Not Crashing**: Added a `std::mutex` so that if I ever use multiple threads, they won't fight over the data.
 - **Lazy Profiling**: Built a custom RAII Timer that does all the boring time-tracking for me automatically.
 
@@ -77,16 +77,17 @@ Run: `./build/Benchmark`
 
 | Scenario | Ops | Time | Throughput |
 |---|---|---|---|
-| `set()` single-thread | 500 000 | 85.8 ms | **5 830 222 ops/s** |
-| `get()` single-thread | 500 000 | 11.6 ms | **43 108 841 ops/s** |
-| `getAverage()` single-thread (100-entry history) | 500 000 | 51.3 ms | **9 747 163 ops/s** |
-| Mixed 4 writers + 4 readers (concurrent) | 1 600 000 | 598.7 ms | **2 672 245 ops/s** |
+| `set()` single-thread | 500 000 | 81.8 ms | **6 109 749 ops/s** |
+| `get()` single-thread | 500 000 | 11.8 ms | **42 477 614 ops/s** |
+| `getAverage()` single-thread (100-entry history) | 500 000 | 44.4 ms | **11 272 299 ops/s** |
+| Mixed 4 writers + 4 readers (concurrent) | 1 600 000 | 380.9 ms | **4 200 534 ops/s** |
 
-*Measured on Linux x86-64, Release build (`-O3`), in-memory store.*
+*Measured on Linux x86-64, Release build (`-O3`), in-memory store. History stored as `vector<Record>` (value types) for cache-friendly iteration.*
 
 **Key observations:**
 
-- `get()` is **7.4× faster** than `set()` — `shared_mutex` correctly allows concurrent reads while serialising only writes.
+- `get()` is **7.0× faster** than `set()` — `shared_mutex` correctly allows concurrent reads while serialising only writes.
+- Switching from `vector<unique_ptr<Record>>` to `vector<Record>` improved `getAverage()` by **+15.6%** and concurrent throughput by **+57.2%** — eliminating per-record heap allocations and improving cache locality during history iteration.
 - Concurrent throughput drops vs. single-thread because 4 writers each acquire a `unique_lock`, blocking all readers. This is the expected cost of write-heavy workloads; a read-heavy workload would scale much better.
 - WAL-backed `set()` throughput is bounded by `fsync()` latency (~100–200 ops/s on HDD, ~10k–50k ops/s on NVMe SSD). Group-commit (batching N writes before one `fsync()`) is the standard fix — see the [group-commit branch](../../issues) for a planned implementation.
 
