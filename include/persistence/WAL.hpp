@@ -15,7 +15,7 @@ enum class RecordType : uint8_t {
 
 class WAL {
 public:
-    explicit WAL(const std::string& path);
+    explicit WAL(const std::string& path, size_t syncEveryN = 1);
     ~WAL();
 
     // Delete copy/move to prevent fd issues
@@ -41,6 +41,8 @@ private:
     std::string m_path;
     int m_fd = -1;
     uint64_t m_epoch = 0;
+    size_t m_syncEveryN = 1;
+    size_t m_pendingWrites = 0;
     mutable std::mutex m_mutex;
 };
 

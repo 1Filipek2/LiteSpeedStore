@@ -1,6 +1,7 @@
 #include <StorageEngine.hpp>
 #include <atomic>
 #include <chrono>
+#include <filesystem>
 #include <iomanip>
 #include <iostream>
 #include <string>
@@ -102,7 +103,36 @@ int main() {
     }
 
     std::cout << std::string(80, '-') << '\n';
-    std::cout << "WAL-backed set() throughput is bounded by fsync() latency\n"
-              << "  (~100-200 ops/s on HDD, ~10k-50k ops/s on NVMe SSD).\n"
-              << "  See group-commit (P4.4) for write throughput optimisation.\n";
+
+    // 5. WAL-backed set(): group-commit trade-off (time-capped, 500ms per run)
+    std::cout << "\nWAL-backed set() — group-commit durability vs. throughput (500ms each)\n";
+    std::cout << std::string(80, '-') << '\n';
+
+    auto benchWAL = [&](size_t syncEveryN, const char* label) {
+        const std::string walPath = "/tmp/litespeed_bench.wal";
+        std::filesystem::remove(walPath);
+        {
+            StorageEngine db(walPath, StorageEngine::kUnlimitedHistory, syncEveryN);
+            auto t0 = Clock::now();
+            auto deadline = t0 + std::chrono::milliseconds(500);
+            long long ops = 0;
+            while (Clock::now() < deadline) {
+                db.set(key, value, 1.0);
+                ++ops;
+            }
+            double s = Seconds(Clock::now() - t0).count();
+            printRow(label, ops, s);
+        }
+        std::filesystem::remove(walPath);
+        std::filesystem::remove("/tmp/litespeed_bench.snap");
+    };
+
+    benchWAL(1,  "WAL set() syncEveryN=1  (max durability)");
+    benchWAL(16, "WAL set() syncEveryN=16");
+    benchWAL(64, "WAL set() syncEveryN=64");
+
+    std::cout << std::string(80, '-') << '\n';
+    std::cout << "Higher syncEveryN = fewer fsyncs = more throughput, less durability.\n"
+              << "syncEveryN=1 guarantees each write survives a crash; syncEveryN=N\n"
+              << "risks losing the last N-1 writes on power failure.\n";
 }

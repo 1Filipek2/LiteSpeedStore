@@ -54,8 +54,8 @@ void importSnapshotState(
     }
 }
 } // namespace
-StorageEngine::StorageEngine(const std::string& dbPath, size_t maxHistoryPerKey)
-    : m_wal(std::make_unique<persistence::WAL>(dbPath)),
+StorageEngine::StorageEngine(const std::string& dbPath, size_t maxHistoryPerKey, size_t syncEveryN)
+    : m_wal(std::make_unique<persistence::WAL>(dbPath, syncEveryN)),
       m_walPath(dbPath),
       m_snapshotPath(makeSnapshotPath(dbPath)),
       m_maxHistoryPerKey(maxHistoryPerKey) {

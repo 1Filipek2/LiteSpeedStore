@@ -89,7 +89,20 @@ Run: `./build/Benchmark`
 - `get()` is **7.0× faster** than `set()` — `shared_mutex` correctly allows concurrent reads while serialising only writes.
 - Switching from `vector<unique_ptr<Record>>` to `vector<Record>` improved `getAverage()` by **+15.6%** and concurrent throughput by **+57.2%** — eliminating per-record heap allocations and improving cache locality during history iteration.
 - Concurrent throughput drops vs. single-thread because 4 writers each acquire a `unique_lock`, blocking all readers. This is the expected cost of write-heavy workloads; a read-heavy workload would scale much better.
-- WAL-backed `set()` throughput is bounded by `fsync()` latency (~100–200 ops/s on HDD, ~10k–50k ops/s on NVMe SSD). Group-commit (batching N writes before one `fsync()`) is the standard fix — see the [group-commit branch](../../issues) for a planned implementation.
+
+### WAL-backed: group-commit trade-off
+
+`StorageEngine` accepts a `syncEveryN` parameter controlling how often `fsync()` is called. `syncEveryN=1` is the default — every write is durable. Higher values batch writes, trading durability for throughput.
+
+| Scenario | Ops | Time | Throughput |
+|---|---|---|---|
+| WAL `set()` syncEveryN=1 (max durability) | 256 022 | 500 ms | **512 043 ops/s** |
+| WAL `set()` syncEveryN=16 | 291 318 | 500 ms | **582 635 ops/s** |
+| WAL `set()` syncEveryN=64 | 291 293 | 500 ms | **582 583 ops/s** |
+
+*Measured on NVMe SSD; on HDD the gap is much larger (~100–200 ops/s at syncEveryN=1).*
+
+`syncEveryN=1` guarantees each write survives a crash. `syncEveryN=N` risks losing the last N−1 writes on power failure — a deliberate durability trade-off, not a bug.
 
 I plan to extend this project further in the future as I experiment with more features and optimizations.
 <img width="1214" height="162" alt="image" src="https://github.com/user-attachments/assets/07ed081f-525f-4ea5-90ff-4c527e48c40f" />

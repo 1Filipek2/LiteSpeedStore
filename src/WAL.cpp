@@ -49,7 +49,8 @@ bool readPod(int fd, T& value) {
     return readExact(fd, &value, sizeof(T));
 }
 } // namespace
-WAL::WAL(const std::string& path) : m_path(path) {
+WAL::WAL(const std::string& path, size_t syncEveryN)
+    : m_path(path), m_syncEveryN(syncEveryN < 1 ? 1 : syncEveryN) {
     m_fd = ::open(m_path.c_str(), O_RDWR | O_CREAT | O_APPEND, 0644);
     if (m_fd == -1) {
         throw std::runtime_error("Failed to open WAL file: " + path);
@@ -83,6 +84,10 @@ bool WAL::reset() {
 void WAL::close() {
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_fd != -1) {
+        if (m_pendingWrites > 0) {
+            ::fsync(m_fd);
+            m_pendingWrites = 0;
+        }
         ::close(m_fd);
         m_fd = -1;
     }
@@ -93,6 +98,7 @@ void WAL::sync() {
         if (::fsync(m_fd) == -1) {
              std::cerr << "WAL fsync failed" << std::endl;
         }
+        m_pendingWrites = 0;
     }
 }
 void WAL::append(RecordType type, const std::string& key, const std::string& value, int64_t timestamp) {
@@ -121,8 +127,12 @@ void WAL::append(RecordType type, const std::string& key, const std::string& val
     if (!buffer.empty() && !writeExact(m_fd, buffer.data(), buffer.size())) {
         throw std::runtime_error("Failed to write entry to WAL");
     }
-    if (::fsync(m_fd) == -1) {
-        throw std::runtime_error("fsync failed");
+    ++m_pendingWrites;
+    if (m_pendingWrites >= m_syncEveryN) {
+        if (::fsync(m_fd) == -1) {
+            throw std::runtime_error("fsync failed");
+        }
+        m_pendingWrites = 0;
     }
 }
 bool WAL::recover(

@@ -25,7 +25,8 @@ public:
     static constexpr size_t kUnlimitedHistory = 0;
 
     explicit StorageEngine(const std::string& dbPath = "litespeed.wal",
-                           size_t maxHistoryPerKey = kUnlimitedHistory);
+                           size_t maxHistoryPerKey = kUnlimitedHistory,
+                           size_t syncEveryN = 1);
 
     // In-memory only — no WAL, no persistence. Suitable for profiling/metrics.
     static StorageEngine makeInMemory(size_t maxHistoryPerKey = kUnlimitedHistory);
