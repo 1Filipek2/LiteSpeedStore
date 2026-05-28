@@ -1,9 +1,11 @@
 #pragma once
+
 #include <chrono>
 #include <string>
 #include <functional>
 #include <utility>
 
+/** RAII timer — fires callback(elapsed_ms) on destruction. */
 class Timer {
 public:
     using Clock = std::chrono::high_resolution_clock;
@@ -24,6 +26,7 @@ private:
     std::function<void(double)> m_callback;
 };
 
+/** Writes elapsed ms to @p engine under @p name when the enclosing scope exits. */
 #define TRACE_SCOPE(name, engine) \
     Timer timer##__LINE__(name, [&](double ms) { \
         engine.set(name, std::to_string(ms) + " ms", ms); \

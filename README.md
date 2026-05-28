@@ -119,4 +119,15 @@ Run: `./build/Benchmark`
 `syncEveryN=1` guarantees each write survives a crash. `syncEveryN=N` risks losing the last N−1 writes on power failure — a deliberate durability trade-off, not a bug.
 
 I plan to extend this project further in the future as I experiment with more features and optimizations.
+
+## API Documentation
+
+All public headers are documented with Doxygen. CI generates and deploys the docs to GitHub Pages on every push to `main`.
+
+To generate locally:
+
+```bash
+doxygen Doxyfile
+open docs/html/index.html
+```
 <img width="1214" height="162" alt="image" src="https://github.com/user-attachments/assets/07ed081f-525f-4ea5-90ff-4c527e48c40f" />

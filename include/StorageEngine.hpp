@@ -10,36 +10,39 @@
 #include <utility>
 #include "persistence/WAL.hpp"
 
-// one entry for database stored in memory
 struct Record {
     std::string value;
-    double duration;
-    long long timestamp;
+    double duration;     ///< Milliseconds.
+    long long timestamp; ///< Nanoseconds since Unix epoch.
 
-    Record(std::string v, long long ts, double d) 
+    Record(std::string v, long long ts, double d)
         : value(std::move(v)), duration(d), timestamp(ts) {}
 };
 
+/** Thread-safe key-value store. Reads use shared_lock; writes use unique_lock. */
 class StorageEngine {
 public:
-    static constexpr size_t kUnlimitedHistory = 0;
+    static constexpr size_t kUnlimitedHistory = 0; ///< 0 = no cap.
 
+    /**
+     * @param syncEveryN  fsync() every N appends. 1 = every write is durable;
+     *                    higher values trade durability for throughput.
+     */
     explicit StorageEngine(const std::string& dbPath = "litespeed.wal",
                            size_t maxHistoryPerKey = kUnlimitedHistory,
                            size_t syncEveryN = 1);
 
-    // In-memory only — no WAL, no persistence. Suitable for profiling/metrics.
+    /** No WAL, no persistence — suitable for profiling/metrics use. */
     static StorageEngine makeInMemory(size_t maxHistoryPerKey = kUnlimitedHistory);
-    
+
     StorageEngine(const StorageEngine&) = delete;
     StorageEngine& operator=(const StorageEngine&) = delete;
 
     void set(const std::string& key, std::string value, double duration);
     std::optional<std::string> get(const std::string& key) const;
-    bool remove(const std::string& key);
+    bool remove(const std::string& key); ///< Returns false if key was not present.
     std::optional<double> getAverage(const std::string& key) const;
-    // Throws std::runtime_error on failure
-    void snapshot();
+    void snapshot(); ///< Throws std::runtime_error on I/O failure.
 
     size_t count() const;
     size_t historyCount(const std::string& key) const;

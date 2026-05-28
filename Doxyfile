@@ -1,0 +1,16 @@
+PROJECT_NAME           = "LiteSpeedStore"
+PROJECT_BRIEF          = "Fast in-memory key-value store with WAL persistence"
+OUTPUT_DIRECTORY       = docs
+INPUT                  = include
+RECURSIVE              = YES
+EXTRACT_ALL            = YES
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+HTML_OUTPUT            = html
+QUIET                  = YES
+WARN_IF_UNDOCUMENTED   = NO
+WARN_NO_PARAMDOC       = NO
+WARN_IF_INCOMPLETE_DOC = NO
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+HAVE_DOT               = NO

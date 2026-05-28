@@ -9,33 +9,43 @@
 namespace persistence {
 
 enum class RecordType : uint8_t {
-    PUT = 1,
+    PUT    = 1,
     DELETE = 2
 };
 
+/**
+ * Append-only write-ahead log with CRC32 integrity checks.
+ * Entry layout: CRC32 | timestamp | epoch | key_len | value_len | type | key | value.
+ */
 class WAL {
 public:
+    /**
+     * @param syncEveryN  fsync() every N appends; 1 = sync on every write.
+     * @throws std::runtime_error if the file cannot be opened.
+     */
     explicit WAL(const std::string& path, size_t syncEveryN = 1);
     ~WAL();
 
-    // Delete copy/move to prevent fd issues
     WAL(const WAL&) = delete;
     WAL& operator=(const WAL&) = delete;
 
-    void append(RecordType type, const std::string& key, const std::string& value, int64_t timestamp);
+    void append(RecordType type, const std::string& key, const std::string& value, int64_t timestamp); ///< Throws on write or fsync failure.
     [[nodiscard]] uint64_t epoch() const;
-    void setEpoch(uint64_t epoch);
-    bool reset();
+    void setEpoch(uint64_t epoch); ///< Called after snapshot rotation to fence old entries.
+    bool reset();                  ///< Truncates to zero; keeps the fd open.
 
-    // Iterates over valid entries in the log. 
-    // Returns true if recovery was clean, false if some corruption was encountered (and truncated).
+    /**
+     * Replays valid entries into @p visitor; skips entries at or below @p minEpochExclusive.
+     * Truncates trailing corruption.
+     * @return false if corruption was encountered.
+     */
     bool recover(
         std::function<void(RecordType, const std::string&, const std::string&, int64_t)> visitor,
         std::optional<uint64_t> minEpochExclusive = std::nullopt
     );
 
-    void sync();
-    void close();
+    void sync();  ///< Forces fsync regardless of syncEveryN.
+    void close(); ///< Flushes pending writes before closing the fd.
 
 private:
     std::string m_path;
