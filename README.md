@@ -69,6 +69,20 @@ cmake --build cmake-build-debug -j 4
 ctest --test-dir cmake-build-debug --output-on-failure
 ```
 
+### Fuzz Testing
+
+The WAL recovery parser is hardened with a libFuzzer harness (`fuzz/fuzz_wal.cpp`). It writes random bytes to a temp file and calls `WAL::recover()` under AddressSanitizer + UBSan — any crash, heap overflow, or undefined behaviour fails the run.
+
+Requires clang:
+
+```bash
+cmake -B build_fuzz -DCMAKE_BUILD_TYPE=Release -DFUZZ=ON -DCMAKE_CXX_COMPILER=clang++
+cmake --build build_fuzz --target FuzzWAL -j4
+./build_fuzz/FuzzWAL fuzz/corpus -max_total_time=60 -max_len=512
+```
+
+CI runs this for 30 seconds on every push (see `.github/workflows/ci.yml`, job `fuzz`).
+
 ## Benchmarks
 
 Hand-rolled timing benchmark using `StorageEngine::makeInMemory()` (no WAL, no fsync).  

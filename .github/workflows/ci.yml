@@ -49,3 +49,20 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang
+        run: sudo apt-get install -y clang
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DFUZZ=ON -DCMAKE_CXX_COMPILER=clang++
+
+      - name: Build
+        run: cmake --build build --target FuzzWAL -j4
+
+      - name: Fuzz (30s)
+        run: ./build/FuzzWAL fuzz/corpus -max_total_time=30 -max_len=512 -error_exitcode=1 -close_fd_mask=2

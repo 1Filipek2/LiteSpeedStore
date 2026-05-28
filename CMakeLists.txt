@@ -57,3 +57,25 @@ add_executable(Benchmark
 )
 target_link_libraries(Benchmark PRIVATE litespeed_core)
 target_compile_options(Benchmark PRIVATE ${LITESPEED_WARNING_FLAGS})
+
+# Fuzzing — requires clang: cmake -DFUZZ=ON -DCMAKE_CXX_COMPILER=clang++
+option(FUZZ "Build libFuzzer harness (requires clang -fsanitize=fuzzer)" OFF)
+
+if(FUZZ)
+    set(FUZZ_FLAGS -fsanitize=fuzzer,address,undefined -fno-omit-frame-pointer)
+
+    # Separate instrumented library so the normal build is unaffected.
+    add_library(litespeed_core_fuzz
+        src/StorageEngine.cpp
+        src/WAL.cpp
+        src/Snapshot.cpp
+    )
+    target_include_directories(litespeed_core_fuzz PUBLIC include)
+    target_link_libraries(litespeed_core_fuzz PUBLIC Threads::Threads)
+    target_compile_options(litespeed_core_fuzz PRIVATE ${LITESPEED_WARNING_FLAGS} ${FUZZ_FLAGS})
+
+    add_executable(FuzzWAL fuzz/fuzz_wal.cpp)
+    target_link_libraries(FuzzWAL PRIVATE litespeed_core_fuzz)
+    target_compile_options(FuzzWAL PRIVATE ${FUZZ_FLAGS})
+    target_link_options(FuzzWAL PRIVATE ${FUZZ_FLAGS})
+endif()
