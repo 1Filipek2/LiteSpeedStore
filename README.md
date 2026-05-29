@@ -1,15 +1,38 @@
 # LiteSpeedStore
 
-I built this project to get my hands dirty with modern C++ and to see how fast I could make a simple in-memory storage engine. It’s small, it’s fast, and it doesn't leak memory.
+A small, fast, crash-safe in-memory key-value store written in C++17. Each key holds an ordered history of values with timestamps and durations, backed by a Write-Ahead Log and periodic snapshots.
 
-## What I was practicing
+## What it demonstrates
 
-- **Modern C++ (17+)**: Using `std::optional`.
-- **Speed & Efficiency**: Playing with move semantics and value-type `Record` storage for cache-friendly iteration.
-- **Not Crashing**: Added a `std::mutex` so that if I ever use multiple threads, they won't fight over the data.
-- **Lazy Profiling**: Built a custom RAII Timer that does all the boring time-tracking for me automatically.
+- **Reader-writer concurrency** — `std::shared_mutex` allows unlimited concurrent reads; writes take an exclusive lock. Benchmarked to confirm the expected throughput ratio.
+- **WAL persistence with CRC32** — every entry is checksummed; partial writes at the tail are detected and truncated on recovery.
+- **Atomic snapshots** — `tmp-then-rename` pattern: the existing snapshot is never touched if a write fails.
+- **Group-commit** — `syncEveryN` parameter trades per-write durability for throughput; benchmarked to show the trade-off.
+- **Cache-friendly storage** — history stored as `vector<Record>` (value types) rather than `vector<unique_ptr<Record>>` to avoid per-entry heap allocation and improve iteration locality.
+- **RAII profiling** — `TRACE_SCOPE` macro records elapsed time directly into the store without touching production data paths.
+- **Fuzz testing** — libFuzzer harness feeds random bytes into `WAL::recover()` under AddressSanitizer + UBSan; runs 30 seconds in CI on every push.
+- **CI pipeline** — GitHub Actions: Debug build, AddressSanitizer, ThreadSanitizer, libFuzzer, and Doxygen → GitHub Pages.
 
-Basically, I wanted to see how "pro" I could make a key-value store while keeping the code clean enough that I wouldn't hate myself looking at it a week later.
+## Building
+
+```bash
+# Standard build
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+
+# AddressSanitizer + UBSan
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DSANITIZE_ADDRESS=ON
+cmake --build build --parallel
+
+# ThreadSanitizer
+cmake -B build -DCMAKE_BUILD_TYPE=Debug -DSANITIZE_THREAD=ON
+cmake --build build --parallel
+
+# libFuzzer (requires clang)
+cmake -B build_fuzz -DCMAKE_BUILD_TYPE=Release -DFUZZ=ON -DCMAKE_CXX_COMPILER=clang++
+cmake --build build_fuzz --target FuzzWAL -j4
+./build_fuzz/FuzzWAL fuzz/corpus -max_total_time=60 -max_len=512
+```
 
 ## Persistence Layer
 
@@ -43,7 +66,7 @@ snapshot_epoch
 key_count
   key_len + key
   record_count
-	timestamp + duration + value_len + value
+    timestamp + duration + value_len + value
 ```
 
 ### Recovery Order
@@ -59,21 +82,17 @@ key_count
 - After the snapshot is committed, the WAL epoch is advanced and the log is truncated for rotation.
 - If the truncation step fails, the snapshot is still valid and recovery still works because old WAL entries are ignored by epoch.
 
-### Running the Test
-
-You can run the persistence test directly or through CTest:
+### Running the Tests
 
 ```bash
-cmake --build cmake-build-debug -j 4
-./cmake-build-debug/TestPersistence
-ctest --test-dir cmake-build-debug --output-on-failure
+cmake -B build -DCMAKE_BUILD_TYPE=Debug
+cmake --build build --parallel
+ctest --test-dir build --output-on-failure
 ```
 
 ### Fuzz Testing
 
 The WAL recovery parser is hardened with a libFuzzer harness (`fuzz/fuzz_wal.cpp`). It writes random bytes to a temp file and calls `WAL::recover()` under AddressSanitizer + UBSan — any crash, heap overflow, or undefined behaviour fails the run.
-
-Requires clang:
 
 ```bash
 cmake -B build_fuzz -DCMAKE_BUILD_TYPE=Release -DFUZZ=ON -DCMAKE_CXX_COMPILER=clang++
@@ -118,8 +137,6 @@ Run: `./build/Benchmark`
 
 `syncEveryN=1` guarantees each write survives a crash. `syncEveryN=N` risks losing the last N−1 writes on power failure — a deliberate durability trade-off, not a bug.
 
-I plan to extend this project further in the future as I experiment with more features and optimizations.
-
 ## API Documentation
 
 All public headers are documented with Doxygen. CI generates and deploys the docs to GitHub Pages on every push to `main`.
@@ -130,4 +147,3 @@ To generate locally:
 doxygen Doxyfile
 open docs/html/index.html
 ```
-<img width="1214" height="162" alt="image" src="https://github.com/user-attachments/assets/07ed081f-525f-4ea5-90ff-4c527e48c40f" />
