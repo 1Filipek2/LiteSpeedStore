@@ -71,14 +71,22 @@ void StorageEngine::recover() {
     } else {
         m_wal->setEpoch(0);
     }
-    m_wal->recover([this](persistence::RecordType type, const std::string& key, const std::string& blob, int64_t timestamp) {
-        if (type == persistence::RecordType::PUT) {
-            auto [duration, value] = deserialize(blob);
-            appendCapped(key, std::move(value), duration, timestamp);
-        } else if (type == persistence::RecordType::DELETE) {
-            m_data.erase(key);
-        }
-    }, m_snapshotEpoch);
+    const persistence::RecoveryResult result = m_wal->recover(
+        [this](persistence::RecordType type, const std::string& key, const std::string& blob, int64_t timestamp) {
+            if (type == persistence::RecordType::PUT) {
+                auto [duration, value] = deserialize(blob);
+                appendCapped(key, std::move(value), duration, timestamp);
+            } else if (type == persistence::RecordType::DELETE) {
+                m_data.erase(key);
+            }
+        }, m_snapshotEpoch);
+    // A tampered journal is refused outright — a security log that silently loads
+    // forged data is worse than one that fails loudly.
+    if (result.status == persistence::RecoveryStatus::Tampered) {
+        throw std::runtime_error(
+            "WAL tampering detected at offset " + std::to_string(result.tamperOffset) +
+            " (seq " + std::to_string(result.tamperSeq) + ")");
+    }
 }
 void StorageEngine::appendCapped(const std::string& key, std::string value, double duration, long long timestamp) {
     auto& history = m_data[key];

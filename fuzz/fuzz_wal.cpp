@@ -20,7 +20,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
     // parser in recover() rather than being rejected at the header check.
     static const uint8_t header[persistence::WAL::kHeaderSize] = {
         0x57, 0x53, 0x4C, 0x31,  // magic   = 0x314C5357
-        0x01, 0x00, 0x00, 0x00,  // version = 1
+        0x02, 0x00, 0x00, 0x00,  // version = 2
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // flags = 0
     };
     auto writeAll = [fd](const uint8_t* buf, size_t len) {

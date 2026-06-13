@@ -2,15 +2,41 @@
 #include <catch2/catch_approx.hpp>
 
 #include "StorageEngine.hpp"
+#include "persistence/SHA256.hpp"
+#include "persistence/WAL.hpp"
 #include <array>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <string>
 #include <thread>
 #include <vector>
 
 static const std::string WAL_PATH  = "test_persist.wal";
 static const std::string SNAP_PATH = "test_persist.snap";
+
+static std::vector<char> readAll(const std::string& path) {
+    std::ifstream f(path, std::ios::binary);
+    return std::vector<char>(std::istreambuf_iterator<char>(f),
+                             std::istreambuf_iterator<char>());
+}
+
+static void writeAll(const std::string& path, const std::vector<char>& bytes) {
+    std::ofstream f(path, std::ios::binary | std::ios::trunc);
+    f.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
+}
+
+static std::string toHex(const persistence::Sha256Digest& d) {
+    static const char* hex = "0123456789abcdef";
+    std::string s;
+    s.reserve(d.size() * 2);
+    for (uint8_t b : d) {
+        s.push_back(hex[b >> 4]);
+        s.push_back(hex[b & 0x0F]);
+    }
+    return s;
+}
 
 static void cleanup() {
     if (std::filesystem::exists(WAL_PATH))  std::filesystem::remove(WAL_PATH);
@@ -162,6 +188,107 @@ TEST_CASE("WAL recovery: garbage appended at end is truncated gracefully", "[wal
         REQUIRE(db.get("before").has_value());
         REQUIRE(db.get("before").value() == "good");
     }
+
+    cleanup();
+}
+
+TEST_CASE("SHA256 matches known FIPS 180-4 test vectors", "[sha256]") {
+    const std::string empty;
+    REQUIRE(toHex(persistence::SHA256::hash(
+                reinterpret_cast<const uint8_t*>(empty.data()), empty.size()))
+            == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+
+    const std::string abc = "abc";
+    REQUIRE(toHex(persistence::SHA256::hash(
+                reinterpret_cast<const uint8_t*>(abc.data()), abc.size()))
+            == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+}
+
+TEST_CASE("Hash chain: a clean log verifies and exposes a checkpoint", "[tamper]") {
+    cleanup();
+
+    {
+        StorageEngine db(WAL_PATH);
+        db.set("a", "1", 1.0);
+        db.set("b", "2", 2.0);
+    }
+
+    persistence::WAL wal(WAL_PATH);
+    const persistence::RecoveryResult result = wal.recover(
+        [](persistence::RecordType, const std::string&, const std::string&, int64_t) {});
+    REQUIRE(result.status == persistence::RecoveryStatus::Ok);
+
+    const persistence::Checkpoint cp = wal.head();
+    REQUIRE(cp.seq == 2); // two entries chained
+    bool headIsNonZero = false;
+    for (uint8_t b : cp.head) if (b != 0) headIsNonZero = true;
+    REQUIRE(headIsNonZero);
+
+    cleanup();
+}
+
+TEST_CASE("Tamper evidence: flipping one byte mid-log is detected", "[tamper]") {
+    cleanup();
+
+    {
+        StorageEngine db(WAL_PATH);
+        db.set("key1", "val1", 1.0);
+        db.set("key2", "val2", 2.0);
+        db.set("key3", "val3", 3.0);
+    }
+
+    // Flip a byte inside the first entry (which has entries after it, so this is
+    // an interior modification, not a torn tail). Offset 53 is the first key byte:
+    // header(16) + crc(4) + seq(8) + ts(8) + epoch(8) + key_len(4) + value_len(4) + type(1).
+    std::vector<char> bytes = readAll(WAL_PATH);
+    REQUIRE(bytes.size() > 53);
+    bytes[53] = static_cast<char>(bytes[53] ^ 0x01);
+    writeAll(WAL_PATH, bytes);
+
+    // Read-only verification reports tampering at the first entry, file untouched.
+    {
+        persistence::WAL wal(WAL_PATH);
+        const persistence::RecoveryResult r = wal.verify();
+        REQUIRE(r.status == persistence::RecoveryStatus::Tampered);
+        REQUIRE(r.tamperOffset == persistence::WAL::kHeaderSize);
+    }
+    REQUIRE(readAll(WAL_PATH).size() == bytes.size()); // verify() did not truncate
+
+    // The engine refuses to load a tampered journal.
+    REQUIRE_THROWS_AS(StorageEngine(WAL_PATH), std::runtime_error);
+
+    cleanup();
+}
+
+TEST_CASE("Tamper evidence: deleting a middle entry breaks the chain", "[tamper]") {
+    cleanup();
+
+    // Three records with identical key/value sizes => three equal-length entries.
+    {
+        StorageEngine db(WAL_PATH);
+        db.set("kA", "vv", 1.0);
+        db.set("kB", "vv", 2.0);
+        db.set("kC", "vv", 3.0);
+    }
+
+    std::vector<char> bytes = readAll(WAL_PATH);
+    const size_t header = persistence::WAL::kHeaderSize;
+    const size_t entrySize = (bytes.size() - header) / 3;
+    REQUIRE((bytes.size() - header) % 3 == 0);
+
+    // Splice out the middle entry, leaving a structurally valid file whose chain
+    // and seq no longer line up.
+    std::vector<char> spliced;
+    spliced.insert(spliced.end(), bytes.begin(),
+                   bytes.begin() + static_cast<std::ptrdiff_t>(header + entrySize));
+    spliced.insert(spliced.end(),
+                   bytes.begin() + static_cast<std::ptrdiff_t>(header + 2 * entrySize),
+                   bytes.end());
+    writeAll(WAL_PATH, spliced);
+
+    persistence::WAL wal(WAL_PATH);
+    const persistence::RecoveryResult r = wal.verify();
+    REQUIRE(r.status == persistence::RecoveryStatus::Tampered);
 
     cleanup();
 }

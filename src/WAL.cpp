@@ -1,6 +1,7 @@
 #include "persistence/WAL.hpp"
 #include "persistence/CRC32.hpp"
 #include "persistence/Endian.hpp"
+#include "persistence/SHA256.hpp"
 #include <cerrno>
 #include <cstring>
 #include <fcntl.h>
@@ -41,10 +42,11 @@ bool readExact(int fd, void* data, size_t size) {
     return true;
 }
 constexpr uint32_t WAL_MAGIC   = 0x314C5357; // bytes 'W','S','L','1' on disk (little-endian)
-constexpr uint32_t WAL_VERSION = 1;
+constexpr uint32_t WAL_VERSION = 2;          // v2 adds seq + chain_hash per entry
 // Fixed-size portion of each entry after the CRC:
-// timestamp_low(4) + timestamp_high(4) + epoch(8) + key_len(4) + value_len(4) + type(1).
-constexpr size_t ENTRY_FIXED_SIZE = 25;
+// seq(8) + timestamp_low(4) + timestamp_high(4) + epoch(8) + key_len(4) + value_len(4) + type(1).
+constexpr size_t ENTRY_FIXED_SIZE = 33;
+constexpr size_t HASH_SIZE = 32;
 } // namespace
 WAL::WAL(const std::string& path, size_t syncEveryN)
     : m_path(path), m_syncEveryN(syncEveryN < 1 ? 1 : syncEveryN) {
@@ -97,6 +99,10 @@ void WAL::setEpoch(uint64_t epoch) {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_epoch = epoch;
 }
+Checkpoint WAL::head() const {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return Checkpoint{m_seq, m_headHash};
+}
 bool WAL::reset() {
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_fd == -1) return false;
@@ -112,6 +118,9 @@ bool WAL::reset() {
     if (!writeHeader()) { // a rotated WAL still needs its header
         return false;
     }
+    // a rotated log starts a fresh chain generation.
+    m_seq = 0;
+    m_headHash = Sha256Digest{};
     m_pendingWrites = 0;
     return true;
 }
@@ -126,15 +135,6 @@ void WAL::close() {
         m_fd = -1;
     }
 }
-void WAL::sync() {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    if (m_fd != -1) {
-        if (::fsync(m_fd) == -1) {
-             std::cerr << "WAL fsync failed" << std::endl;
-        }
-        m_pendingWrites = 0;
-    }
-}
 void WAL::append(RecordType type, const std::string& key, const std::string& value, int64_t timestamp) {
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_fd == -1) return;
@@ -144,25 +144,45 @@ void WAL::append(RecordType type, const std::string& key, const std::string& val
     const uint32_t key_len = static_cast<uint32_t>(key.size());
     const uint32_t value_len = static_cast<uint32_t>(value.size());
     const uint8_t type_byte = static_cast<uint8_t>(type);
-    std::vector<uint8_t> buffer;
-    buffer.reserve(ENTRY_FIXED_SIZE + key.size() + value.size());
-    putLE32(buffer, timestamp_low);
-    putLE32(buffer, timestamp_high);
-    putLE64(buffer, m_epoch);
-    putLE32(buffer, key_len);
-    putLE32(buffer, value_len);
-    buffer.push_back(type_byte);
-    buffer.insert(buffer.end(), key.begin(), key.end());
-    buffer.insert(buffer.end(), value.begin(), value.end());
-    const uint32_t computed_crc = CRC32::calculate(buffer.data(), buffer.size());
+
+    std::vector<uint8_t> fixed;
+    fixed.reserve(ENTRY_FIXED_SIZE);
+    putLE64(fixed, m_seq);
+    putLE32(fixed, timestamp_low);
+    putLE32(fixed, timestamp_high);
+    putLE64(fixed, m_epoch);
+    putLE32(fixed, key_len);
+    putLE32(fixed, value_len);
+    fixed.push_back(type_byte);
+
+    // chain_hash = SHA256(prev_hash | fixed | key | value): binds this entry to
+    // every entry before it, so any in-place change downstream breaks the chain.
+    SHA256 ctx;
+    ctx.update(m_headHash.data(), m_headHash.size());
+    ctx.update(fixed.data(), fixed.size());
+    ctx.update(reinterpret_cast<const uint8_t*>(key.data()), key.size());
+    ctx.update(reinterpret_cast<const uint8_t*>(value.data()), value.size());
+    const Sha256Digest chainHash = ctx.digest();
+
+    std::vector<uint8_t> entry;
+    entry.reserve(fixed.size() + key.size() + value.size() + HASH_SIZE);
+    entry.insert(entry.end(), fixed.begin(), fixed.end());
+    entry.insert(entry.end(), key.begin(), key.end());
+    entry.insert(entry.end(), value.begin(), value.end());
+    entry.insert(entry.end(), chainHash.begin(), chainHash.end());
+
+    const uint32_t computed_crc = CRC32::calculate(entry.data(), entry.size());
     // Write CRC + entry in a single call to minimise the torn-write window.
     std::vector<uint8_t> out;
-    out.reserve(sizeof(computed_crc) + buffer.size());
+    out.reserve(sizeof(computed_crc) + entry.size());
     putLE32(out, computed_crc);
-    out.insert(out.end(), buffer.begin(), buffer.end());
+    out.insert(out.end(), entry.begin(), entry.end());
     if (!writeExact(m_fd, out.data(), out.size())) {
         throw std::runtime_error("Failed to write entry to WAL");
     }
+
+    m_headHash = chainHash;
+    ++m_seq;
     ++m_pendingWrites;
     if (m_pendingWrites >= m_syncEveryN) {
         if (::fsync(m_fd) == -1) {
@@ -171,84 +191,134 @@ void WAL::append(RecordType type, const std::string& key, const std::string& val
         m_pendingWrites = 0;
     }
 }
-bool WAL::recover(
+RecoveryResult WAL::walkChain(
+    const std::function<void(RecordType, const std::string&, const std::string&, int64_t)>& visitor,
+    std::optional<uint64_t> minEpochExclusive,
+    bool allowTruncate,
+    uint64_t& outSeq,
+    Sha256Digest& outHead) {
+    RecoveryResult result;
+    outSeq = 0;
+    outHead = Sha256Digest{};
+    if (m_fd == -1) return result;
+
+    struct stat st;
+    if (::fstat(m_fd, &st) == -1) return result;
+    if (::lseek(m_fd, static_cast<off_t>(kHeaderSize), SEEK_SET) == -1) return result;
+
+    off_t current_pos = static_cast<off_t>(kHeaderSize);
+    Sha256Digest prevHash{};
+    uint64_t expectedSeq = 0;
+    bool torn = false;
+
+    while (current_pos < st.st_size) {
+        // A short read here means the writer was interrupted mid-entry — a torn
+        // tail from a crash, which is legitimately discarded.
+        uint8_t crc_bytes[4];
+        if (!readExact(m_fd, crc_bytes, sizeof(crc_bytes))) { torn = true; break; }
+        const uint32_t stored_crc = getLE32(crc_bytes);
+
+        uint8_t fixed[ENTRY_FIXED_SIZE];
+        if (!readExact(m_fd, fixed, ENTRY_FIXED_SIZE)) { torn = true; break; }
+        const uint64_t seq       = getLE64(fixed + 0);
+        const uint32_t key_len   = getLE32(fixed + 24);
+        const uint32_t value_len = getLE32(fixed + 28);
+        const uint8_t type_byte  = fixed[32];
+
+        // An absurd length on a fully-present header is corruption, not a torn
+        // write — flag it rather than silently truncating valid entries after it.
+        constexpr uint32_t MAX_FIELD_SIZE = 1u << 20; // 1 MiB
+        if (key_len > MAX_FIELD_SIZE || value_len > MAX_FIELD_SIZE) {
+            return RecoveryResult{RecoveryStatus::Tampered,
+                                  static_cast<uint64_t>(current_pos), expectedSeq};
+        }
+
+        std::string key(key_len, '\0');
+        if (key_len > 0 && !readExact(m_fd, &key[0], key_len)) { torn = true; break; }
+        std::string value(value_len, '\0');
+        if (value_len > 0 && !readExact(m_fd, &value[0], value_len)) { torn = true; break; }
+        uint8_t hash_bytes[HASH_SIZE];
+        if (!readExact(m_fd, hash_bytes, HASH_SIZE)) { torn = true; break; }
+
+        // From here the entry is fully present: any inconsistency is tampering.
+        std::vector<uint8_t> entry;
+        entry.reserve(ENTRY_FIXED_SIZE + key_len + value_len + HASH_SIZE);
+        entry.insert(entry.end(), fixed, fixed + ENTRY_FIXED_SIZE);
+        entry.insert(entry.end(), key.begin(), key.end());
+        entry.insert(entry.end(), value.begin(), value.end());
+        entry.insert(entry.end(), hash_bytes, hash_bytes + HASH_SIZE);
+        if (CRC32::calculate(entry.data(), entry.size()) != stored_crc) {
+            return RecoveryResult{RecoveryStatus::Tampered,
+                                  static_cast<uint64_t>(current_pos), expectedSeq};
+        }
+
+        SHA256 ctx;
+        ctx.update(prevHash.data(), prevHash.size());
+        ctx.update(fixed, ENTRY_FIXED_SIZE);
+        ctx.update(reinterpret_cast<const uint8_t*>(key.data()), key.size());
+        ctx.update(reinterpret_cast<const uint8_t*>(value.data()), value.size());
+        const Sha256Digest computed = ctx.digest();
+        if (std::memcmp(computed.data(), hash_bytes, HASH_SIZE) != 0) {
+            return RecoveryResult{RecoveryStatus::Tampered,
+                                  static_cast<uint64_t>(current_pos), expectedSeq};
+        }
+        if (seq != expectedSeq) { // a gap means an entry was deleted or reordered
+            return RecoveryResult{RecoveryStatus::Tampered,
+                                  static_cast<uint64_t>(current_pos), seq};
+        }
+
+        const uint64_t epoch = getLE64(fixed + 16);
+        if (visitor && (!minEpochExclusive || epoch > *minEpochExclusive)) {
+            const uint32_t timestamp_low  = getLE32(fixed + 8);
+            const uint32_t timestamp_high = getLE32(fixed + 12);
+            const int64_t entryTs = static_cast<int64_t>(
+                (static_cast<uint64_t>(timestamp_high) << 32) | timestamp_low);
+            visitor(static_cast<RecordType>(type_byte), key, value, entryTs);
+        }
+
+        prevHash = computed;
+        expectedSeq = seq + 1;
+        outSeq = expectedSeq;
+        outHead = computed;
+
+        current_pos = ::lseek(m_fd, 0, SEEK_CUR);
+        if (current_pos == static_cast<off_t>(-1)) { torn = true; break; }
+    }
+
+    if (torn) {
+        result.status = RecoveryStatus::TruncatedTail;
+        std::cerr << "Detected corruption or partial write at end of WAL. Truncating to "
+                  << current_pos << std::endl;
+        if (allowTruncate) {
+            if (::ftruncate(m_fd, current_pos) == -1) {
+                std::cerr << "Failed to truncate WAL!" << std::endl;
+            }
+            ::lseek(m_fd, 0, SEEK_END);
+        }
+    }
+    return result;
+}
+RecoveryResult WAL::recover(
     std::function<void(RecordType, const std::string&, const std::string&, int64_t)> visitor,
     std::optional<uint64_t> minEpochExclusive
 ) {
     std::lock_guard<std::mutex> lock(m_mutex);
-    if (m_fd == -1) return false;
-    struct stat st;
-    if (::fstat(m_fd, &st) == -1) return false;
-    if (::lseek(m_fd, static_cast<off_t>(kHeaderSize), SEEK_SET) == -1) {
-        return false;
+    uint64_t seq = 0;
+    Sha256Digest head{};
+    RecoveryResult result = walkChain(visitor, minEpochExclusive, /*allowTruncate=*/true, seq, head);
+    // Adopt the verified chain state so subsequent appends continue the chain.
+    // On tampering we leave the file untouched and do not advance state.
+    if (result.status != RecoveryStatus::Tampered) {
+        m_seq = seq;
+        m_headHash = head;
     }
-    off_t current_pos = static_cast<off_t>(kHeaderSize);
-    bool clean_eof = true;
-    while (current_pos < st.st_size) {
-        uint8_t crc_bytes[4];
-        if (!readExact(m_fd, crc_bytes, sizeof(crc_bytes))) {
-            clean_eof = false;
-            break;
-        }
-        const uint32_t stored_crc = getLE32(crc_bytes);
-        uint8_t fixed[ENTRY_FIXED_SIZE];
-        if (!readExact(m_fd, fixed, ENTRY_FIXED_SIZE)) {
-            clean_eof = false;
-            break;
-        }
-        const uint32_t key_len   = getLE32(fixed + 16);
-        const uint32_t value_len = getLE32(fixed + 20);
-        const uint8_t type_byte  = fixed[24];
-        // reject entries with unreasonably large fields before allocating memory.
-        // a corrupted entry could otherwise trigger a multi-GiB allocation before CRC is checked.
-        constexpr uint32_t MAX_FIELD_SIZE = 1u << 20; // 1 MiB
-        if (key_len > MAX_FIELD_SIZE || value_len > MAX_FIELD_SIZE) {
-            clean_eof = false;
-            break;
-        }
-        std::string key(key_len, '\0');
-        if (key_len > 0 && !readExact(m_fd, &key[0], key_len)) {
-            clean_eof = false;
-            break;
-        }
-        std::string value(value_len, '\0');
-        if (value_len > 0 && !readExact(m_fd, &value[0], value_len)) {
-            clean_eof = false;
-            break;
-        }
-        std::vector<uint8_t> check_buffer;
-        check_buffer.reserve(ENTRY_FIXED_SIZE + key_len + value_len);
-        check_buffer.insert(check_buffer.end(), fixed, fixed + ENTRY_FIXED_SIZE);
-        check_buffer.insert(check_buffer.end(), key.begin(), key.end());
-        check_buffer.insert(check_buffer.end(), value.begin(), value.end());
-        const uint32_t calculated = CRC32::calculate(check_buffer.data(), check_buffer.size());
-        if (calculated != stored_crc) {
-            std::cerr << "CRC Mismatch at offset " << current_pos << "! Corrupted entry." << std::endl;
-            clean_eof = false;
-            break;
-        }
-        const uint64_t epoch = getLE64(fixed + 8);
-        if (!minEpochExclusive || epoch > *minEpochExclusive) {
-            const uint32_t timestamp_low  = getLE32(fixed + 0);
-            const uint32_t timestamp_high = getLE32(fixed + 4);
-            const int64_t ts = static_cast<int64_t>(
-                (static_cast<uint64_t>(timestamp_high) << 32) | timestamp_low);
-            visitor(static_cast<RecordType>(type_byte), key, value, ts);
-        }
-        current_pos = ::lseek(m_fd, 0, SEEK_CUR);
-        if (current_pos == static_cast<off_t>(-1)) {
-            clean_eof = false;
-            break;
-        }
-    }
-    if (!clean_eof) {
-        std::cerr << "Detected corruption or partial write at end of WAL. Truncating to " << current_pos << std::endl;
-        if (::ftruncate(m_fd, current_pos) == -1) {
-            std::cerr << "Failed to truncate WAL!" << std::endl;
-            return false;
-        }
-        ::lseek(m_fd, 0, SEEK_END);
-    }
-    return true;
+    return result;
+}
+RecoveryResult WAL::verify() {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    uint64_t seq = 0;
+    Sha256Digest head{};
+    std::function<void(RecordType, const std::string&, const std::string&, int64_t)> noVisitor;
+    return walkChain(noVisitor, std::nullopt, /*allowTruncate=*/false, seq, head);
 }
 } // namespace persistence
