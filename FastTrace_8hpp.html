@@ -123,8 +123,8 @@ Macros</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<b>Value:</b><div class="fragment"><div class="line">    <a class="code hl_class" href="classTimer.html">Timer</a> timer##__LINE__(name, [&amp;](<span class="keywordtype">double</span> ms) { \</div>
-<div class="line">        engine.set(name, std::to_string(ms) + <span class="stringliteral">&quot; ms&quot;</span>, ms); \</div>
+<b>Value:</b><div class="fragment"><div class="line">    <a class="code hl_class" href="classTimer.html">Timer</a> timer##__LINE__((name), [&amp;](<span class="keywordtype">double</span> ms) { \</div>
+<div class="line">        (engine).set((name), std::to_string(ms) + <span class="stringliteral">&quot; ms&quot;</span>, ms); \</div>
 <div class="line">    })</div>
 <div class="ttc" id="aclassTimer_html"><div class="ttname"><a href="classTimer.html">Timer</a></div><div class="ttdef"><b>Definition</b> FastTrace.hpp:9</div></div>
 </div><!-- fragment --><p>Writes elapsed ms to <code>engine</code> under <code>name</code> when the enclosing scope exits. </p>

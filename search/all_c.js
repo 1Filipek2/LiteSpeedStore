@@ -1,8 +1,7 @@
 var searchData=
 [
-  ['record_0',['record',['../structRecord.html',1,'Record'],['../structRecord.html#ab895b086d1be44da4cd2e60c6d655a46',1,'Record::Record()']]],
-  ['recordtype_1',['RecordType',['../namespacepersistence.html#a182f88c7360b43b6f36185dffc1b3111',1,'persistence']]],
-  ['recover_2',['recover',['../classpersistence_1_1WAL.html#accedfd047776f75aa5921a7e9fab1367',1,'persistence::WAL::recover()'],['../classStorageEngine.html#abac412bd280b8ac84ddcfec76bd90985',1,'StorageEngine::recover()']]],
-  ['remove_3',['remove',['../classStorageEngine.html#a7382aecf713809c0509aa8f66b7cfa4e',1,'StorageEngine']]],
-  ['reset_4',['reset',['../classpersistence_1_1WAL.html#a4ecffc762de39c124a2286e2b0abc9d6',1,'persistence::WAL']]]
+  ['persistence_0',['persistence',['../namespacepersistence.html',1,'']]],
+  ['put_1',['PUT',['../namespacepersistence.html#a182f88c7360b43b6f36185dffc1b3111a3e75383a5992a6d15fb81e872e46e256',1,'persistence']]],
+  ['putle32_2',['putLE32',['../namespacepersistence.html#a80bc33d63b502dd1cd50ff49745612e0',1,'persistence']]],
+  ['putle64_3',['putLE64',['../namespacepersistence.html#a27257fe83c3c2229b2ee1b2861953b4d',1,'persistence']]]
 ];

@@ -76,6 +76,7 @@ $(function() {
 <div class="header">
   <div class="summary">
 <a href="#pub-methods">Public Member Functions</a> &#124;
+<a href="#pub-static-attribs">Static Public Attributes</a> &#124;
 <a href="classpersistence_1_1WAL-members.html">List of all members</a>  </div>
   <div class="headertitle"><div class="title">persistence::WAL Class Reference</div></div>
 </div><!--header-->
@@ -102,19 +103,28 @@ Public Member Functions</h2></td></tr>
 <tr class="memdesc:abab2e7d5b189b2e6d4014af2015fd02d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Called after snapshot rotation to fence old entries.  <br /></td></tr>
 <tr class="separator:abab2e7d5b189b2e6d4014af2015fd02d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a4ecffc762de39c124a2286e2b0abc9d6" id="r_a4ecffc762de39c124a2286e2b0abc9d6"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1WAL.html#a4ecffc762de39c124a2286e2b0abc9d6">reset</a> ()</td></tr>
-<tr class="memdesc:a4ecffc762de39c124a2286e2b0abc9d6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Truncates to zero; keeps the fd open.  <br /></td></tr>
+<tr class="memdesc:a4ecffc762de39c124a2286e2b0abc9d6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Truncates to the header; starts a fresh chain generation.  <br /></td></tr>
 <tr class="separator:a4ecffc762de39c124a2286e2b0abc9d6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:accedfd047776f75aa5921a7e9fab1367" id="r_accedfd047776f75aa5921a7e9fab1367"><td class="memItemLeft" align="right" valign="top">bool&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1WAL.html#accedfd047776f75aa5921a7e9fab1367">recover</a> (std::function&lt; void(<a class="el" href="namespacepersistence.html#a182f88c7360b43b6f36185dffc1b3111">RecordType</a>, const std::string &amp;, const std::string &amp;, int64_t)&gt; visitor, std::optional&lt; uint64_t &gt; minEpochExclusive=std::nullopt)</td></tr>
-<tr class="separator:accedfd047776f75aa5921a7e9fab1367"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a88d9ed546a6f1a027a8105e152aab02b" id="r_a88d9ed546a6f1a027a8105e152aab02b"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1WAL.html#a88d9ed546a6f1a027a8105e152aab02b">sync</a> ()</td></tr>
-<tr class="memdesc:a88d9ed546a6f1a027a8105e152aab02b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Forces fsync regardless of syncEveryN.  <br /></td></tr>
-<tr class="separator:a88d9ed546a6f1a027a8105e152aab02b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:acda95def8da4ad91f497671c0b3d3827" id="r_acda95def8da4ad91f497671c0b3d3827"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structpersistence_1_1Checkpoint.html">Checkpoint</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1WAL.html#acda95def8da4ad91f497671c0b3d3827">head</a> () const</td></tr>
+<tr class="memdesc:acda95def8da4ad91f497671c0b3d3827"><td class="mdescLeft">&#160;</td><td class="mdescRight">Current chain anchor (seq + head hash).  <br /></td></tr>
+<tr class="separator:acda95def8da4ad91f497671c0b3d3827"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a3d9ec2a11db5d7d72252f5a3e904f327" id="r_a3d9ec2a11db5d7d72252f5a3e904f327"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structpersistence_1_1RecoveryResult.html">RecoveryResult</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1WAL.html#a3d9ec2a11db5d7d72252f5a3e904f327">recover</a> (const std::function&lt; void(<a class="el" href="namespacepersistence.html#a182f88c7360b43b6f36185dffc1b3111">RecordType</a>, const std::string &amp;, const std::string &amp;, int64_t)&gt; &amp;visitor, std::optional&lt; uint64_t &gt; minEpochExclusive=std::nullopt)</td></tr>
+<tr class="separator:a3d9ec2a11db5d7d72252f5a3e904f327"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4f78885256a0ce846d5906ccaeb2daa1" id="r_a4f78885256a0ce846d5906ccaeb2daa1"><td class="memItemLeft" align="right" valign="top"><a class="el" href="structpersistence_1_1RecoveryResult.html">RecoveryResult</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1WAL.html#a4f78885256a0ce846d5906ccaeb2daa1">verify</a> ()</td></tr>
+<tr class="memdesc:a4f78885256a0ce846d5906ccaeb2daa1"><td class="mdescLeft">&#160;</td><td class="mdescRight">Read-only chain verification — never mutates the file. For a verifier tool.  <br /></td></tr>
+<tr class="separator:a4f78885256a0ce846d5906ccaeb2daa1"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a283ec8461b043e3d46c478829412ec21" id="r_a283ec8461b043e3d46c478829412ec21"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1WAL.html#a283ec8461b043e3d46c478829412ec21">close</a> ()</td></tr>
 <tr class="memdesc:a283ec8461b043e3d46c478829412ec21"><td class="mdescLeft">&#160;</td><td class="mdescRight">Flushes pending writes before closing the fd.  <br /></td></tr>
 <tr class="separator:a283ec8461b043e3d46c478829412ec21"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="pub-static-attribs" name="pub-static-attribs"></a>
+Static Public Attributes</h2></td></tr>
+<tr class="memitem:a877bdaf4c6fb4129ecc46d8461ab850b" id="r_a877bdaf4c6fb4129ecc46d8461ab850b"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1WAL.html#a877bdaf4c6fb4129ecc46d8461ab850b">kHeaderSize</a> = 16</td></tr>
+<tr class="memdesc:a877bdaf4c6fb4129ecc46d8461ab850b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Size of the on-disk file header: magic(4) + version(4) + flags(8).  <br /></td></tr>
+<tr class="separator:a877bdaf4c6fb4129ecc46d8461ab850b"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
-<div class="textblock"><p>Append-only write-ahead log with <a class="el" href="classpersistence_1_1CRC32.html">CRC32</a> integrity checks. Entry layout: <a class="el" href="classpersistence_1_1CRC32.html">CRC32</a> | timestamp | epoch | key_len | value_len | type | key | value. </p>
+<div class="textblock"><p>Append-only write-ahead log with a SHA-256 hash chain for tamper evidence. Entry layout: <a class="el" href="classpersistence_1_1CRC32.html">CRC32</a> | seq | timestamp | epoch | key_len | value_len | type | key | value | chain_hash, where chain_hash = <a class="el" href="classpersistence_1_1SHA256.html">SHA256</a>(prev_hash | seq..value). </p>
 </div><h2 class="groupheader">Constructor &amp; Destructor Documentation</h2>
 <a id="a25e4299c01a241c6085294ca6bd31139" name="a25e4299c01a241c6085294ca6bd31139"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a25e4299c01a241c6085294ca6bd31139">&#9670;&#160;</a></span>WAL() <span class="overload">[1/2]</span></h2>
@@ -157,7 +167,7 @@ Public Member Functions</h2></td></tr>
 </dl>
 <dl class="exception"><dt>Exceptions</dt><dd>
   <table class="exception">
-    <tr><td class="paramname">std::runtime_error</td><td>if the file cannot be opened. </td></tr>
+    <tr><td class="paramname">std::runtime_error</td><td>if the file cannot be opened or has a corrupt header. </td></tr>
   </table>
   </dd>
 </dl>
@@ -286,6 +296,25 @@ Public Member Functions</h2></td></tr>
 
 </div>
 </div>
+<a id="acda95def8da4ad91f497671c0b3d3827" name="acda95def8da4ad91f497671c0b3d3827"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#acda95def8da4ad91f497671c0b3d3827">&#9670;&#160;</a></span>head()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname"><a class="el" href="structpersistence_1_1Checkpoint.html">Checkpoint</a> persistence::WAL::head </td>
+          <td>(</td>
+          <td class="paramname"></td><td>)</td>
+          <td> const</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Current chain anchor (seq + head hash). </p>
+
+</div>
+</div>
 <a id="adbf82d3117336afb6c037a5e4855ada5" name="adbf82d3117336afb6c037a5e4855ada5"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#adbf82d3117336afb6c037a5e4855ada5">&#9670;&#160;</a></span>operator=()</h2>
 
@@ -312,16 +341,16 @@ Public Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="accedfd047776f75aa5921a7e9fab1367" name="accedfd047776f75aa5921a7e9fab1367"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#accedfd047776f75aa5921a7e9fab1367">&#9670;&#160;</a></span>recover()</h2>
+<a id="a3d9ec2a11db5d7d72252f5a3e904f327" name="a3d9ec2a11db5d7d72252f5a3e904f327"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a3d9ec2a11db5d7d72252f5a3e904f327">&#9670;&#160;</a></span>recover()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">bool persistence::WAL::recover </td>
+          <td class="memname"><a class="el" href="structpersistence_1_1RecoveryResult.html">RecoveryResult</a> persistence::WAL::recover </td>
           <td>(</td>
-          <td class="paramtype">std::function&lt; void(<a class="el" href="namespacepersistence.html#a182f88c7360b43b6f36185dffc1b3111">RecordType</a>, const std::string &amp;, const std::string &amp;, int64_t)&gt;&#160;</td>
+          <td class="paramtype">const std::function&lt; void(<a class="el" href="namespacepersistence.html#a182f88c7360b43b6f36185dffc1b3111">RecordType</a>, const std::string &amp;, const std::string &amp;, int64_t)&gt; &amp;&#160;</td>
           <td class="paramname"><em>visitor</em>, </td>
         </tr>
         <tr>
@@ -337,7 +366,7 @@ Public Member Functions</h2></td></tr>
         </tr>
       </table>
 </div><div class="memdoc">
-<p>Replays valid entries into <code>visitor</code>; skips entries at or below <code>minEpochExclusive</code>. Truncates trailing corruption. </p><dl class="section return"><dt>Returns</dt><dd>false if corruption was encountered. </dd></dl>
+<p>Replays valid entries into <code>visitor</code>; skips entries at or below <code>minEpochExclusive</code>. Verifies the hash chain: a torn tail is truncated, but tampering is reported (and the file is left intact so the evidence survives). </p>
 
 </div>
 </div>
@@ -356,7 +385,7 @@ Public Member Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Truncates to zero; keeps the fd open. </p>
+<p>Truncates to the header; starts a fresh chain generation. </p>
 
 </div>
 </div>
@@ -380,14 +409,14 @@ Public Member Functions</h2></td></tr>
 
 </div>
 </div>
-<a id="a88d9ed546a6f1a027a8105e152aab02b" name="a88d9ed546a6f1a027a8105e152aab02b"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a88d9ed546a6f1a027a8105e152aab02b">&#9670;&#160;</a></span>sync()</h2>
+<a id="a4f78885256a0ce846d5906ccaeb2daa1" name="a4f78885256a0ce846d5906ccaeb2daa1"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4f78885256a0ce846d5906ccaeb2daa1">&#9670;&#160;</a></span>verify()</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">void persistence::WAL::sync </td>
+          <td class="memname"><a class="el" href="structpersistence_1_1RecoveryResult.html">RecoveryResult</a> persistence::WAL::verify </td>
           <td>(</td>
           <td class="paramname"></td><td>)</td>
           <td></td>
@@ -395,7 +424,32 @@ Public Member Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Forces fsync regardless of syncEveryN. </p>
+<p>Read-only chain verification — never mutates the file. For a verifier tool. </p>
+
+</div>
+</div>
+<h2 class="groupheader">Member Data Documentation</h2>
+<a id="a877bdaf4c6fb4129ecc46d8461ab850b" name="a877bdaf4c6fb4129ecc46d8461ab850b"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a877bdaf4c6fb4129ecc46d8461ab850b">&#9670;&#160;</a></span>kHeaderSize</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t persistence::WAL::kHeaderSize = 16</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Size of the on-disk file header: magic(4) + version(4) + flags(8). </p>
 
 </div>
 </div>

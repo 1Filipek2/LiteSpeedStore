@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['_7etimer_0',['~Timer',['../classTimer.html#a14fa469c4c295c5fa6e66a4ad1092146',1,'Timer']]],
-  ['_7ewal_1',['~WAL',['../classpersistence_1_1WAL.html#aba62ac12d672c443bae04f9735dd2f8e',1,'persistence::WAL']]]
+  ['value_0',['value',['../structpersistence_1_1SnapshotRecord.html#a72fc32cd90eb3cad326c79c4dc4698b8',1,'persistence::SnapshotRecord::value'],['../structRecord.html#ab13e12db1540afee0093304ae69a1556',1,'Record::value']]],
+  ['verify_1',['verify',['../classpersistence_1_1WAL.html#a4f78885256a0ce846d5906ccaeb2daa1',1,'persistence::WAL']]]
 ];

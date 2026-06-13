@@ -1,5 +1,9 @@
 var searchData=
 [
-  ['_7etimer_0',['~Timer',['../classTimer.html#a14fa469c4c295c5fa6e66a4ad1092146',1,'Timer']]],
-  ['_7ewal_1',['~WAL',['../classpersistence_1_1WAL.html#aba62ac12d672c443bae04f9735dd2f8e',1,'persistence::WAL']]]
+  ['save_0',['save',['../classpersistence_1_1Snapshot.html#ad43d7e23208a7d1664e3dd96df619472',1,'persistence::Snapshot']]],
+  ['set_1',['set',['../classStorageEngine.html#a401e29cbeb11c0e55c35623146011221',1,'StorageEngine']]],
+  ['setepoch_2',['setEpoch',['../classpersistence_1_1WAL.html#abab2e7d5b189b2e6d4014af2015fd02d',1,'persistence::WAL']]],
+  ['sha256_3',['SHA256',['../classpersistence_1_1SHA256.html#ace478adedb04be33392643dd0981e30c',1,'persistence::SHA256']]],
+  ['snapshot_4',['snapshot',['../classStorageEngine.html#a50a67e35919d68161af3f3419000be97',1,'StorageEngine']]],
+  ['storageengine_5',['storageengine',['../classStorageEngine.html#a1b23f6508d18d4fbdfc74358f3c0143f',1,'StorageEngine::StorageEngine(const std::string &amp;dbPath=&quot;litespeed.wal&quot;, size_t maxHistoryPerKey=kUnlimitedHistory, size_t syncEveryN=1)'],['../classStorageEngine.html#ab8c2a64a523783d370ccc89ecd6bb79b',1,'StorageEngine::StorageEngine(const StorageEngine &amp;)=delete']]]
 ];

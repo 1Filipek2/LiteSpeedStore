@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['get_0',['get',['../classStorageEngine.html#a86162e04aae4b6fff0963596fa10d223',1,'StorageEngine']]],
-  ['getaverage_1',['getAverage',['../classStorageEngine.html#ad152c82fb73b3f2523ed5f80200da952',1,'StorageEngine']]]
+  ['digest_0',['digest',['../classpersistence_1_1SHA256.html#a39e12e08cd80620b52ab6402fd6aba71',1,'persistence::SHA256']]],
+  ['doubletobits_1',['doubleToBits',['../namespacepersistence.html#a9c5287c23d3141b7c6b0df3663ed2f19',1,'persistence']]]
 ];

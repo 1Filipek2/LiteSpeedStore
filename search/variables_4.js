@@ -1,4 +1,6 @@
 var searchData=
 [
-  ['timestamp_0',['timestamp',['../structpersistence_1_1SnapshotRecord.html#a40fba4e9331b52caeafcd0d4cfecdbf0',1,'persistence::SnapshotRecord::timestamp'],['../structRecord.html#a8c93cda666605eca8a598ac2ab73b9d6',1,'Record::timestamp']]]
+  ['seq_0',['seq',['../structpersistence_1_1Checkpoint.html#a6c3bc8d93f88fa7bc663a99c74bfc4ee',1,'persistence::Checkpoint']]],
+  ['state_1',['state',['../structpersistence_1_1SnapshotImage.html#a2a5138d94e04d90861dbf95610d06a14',1,'persistence::SnapshotImage']]],
+  ['status_2',['status',['../structpersistence_1_1RecoveryResult.html#a413804fd270b2f1704049ac79dae736b',1,'persistence::RecoveryResult']]]
 ];

@@ -86,11 +86,16 @@ $(function() {
 <code>#include &lt;mutex&gt;</code><br />
 <code>#include &lt;optional&gt;</code><br />
 <code>#include &lt;string&gt;</code><br />
+<code>#include &quot;<a class="el" href="SHA256_8hpp_source.html">persistence/SHA256.hpp</a>&quot;</code><br />
 </div>
 <p><a href="WAL_8hpp_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="nested-classes" name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structpersistence_1_1RecoveryResult.html">persistence::RecoveryResult</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structpersistence_1_1Checkpoint.html">persistence::Checkpoint</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1WAL.html">persistence::WAL</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -105,6 +110,12 @@ Enumerations</h2></td></tr>
 , <a class="el" href="namespacepersistence.html#a182f88c7360b43b6f36185dffc1b3111a32f68a60cef40faedbc6af20298c1a1e">persistence::DELETE</a> = 2
  }</td></tr>
 <tr class="separator:a182f88c7360b43b6f36185dffc1b3111"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af56647fab7e6e28842638b7e98427a7f" id="r_af56647fab7e6e28842638b7e98427a7f"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7f">persistence::RecoveryStatus</a> : uint8_t { <a class="el" href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7faa60852f204ed8028c1c58808b746d115">persistence::Ok</a>
+, <a class="el" href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7fa35dd6872226928a407d42220ff0e2f0e">persistence::TruncatedTail</a>
+, <a class="el" href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7fa692bc1cf4340ebe99b02477daa920f39">persistence::Tampered</a>
+ }</td></tr>
+<tr class="memdesc:af56647fab7e6e28842638b7e98427a7f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Outcome of walking the log chain during recovery or verification.  <a href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7f">More...</a><br /></td></tr>
+<tr class="separator:af56647fab7e6e28842638b7e98427a7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 </div><!-- contents -->
 <!-- start footer part -->

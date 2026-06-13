@@ -135,15 +135,17 @@ $(document).ready(function() { init_codefold(0); });
 <div class="line"><a id="l00052" name="l00052"></a><span class="lineno">   52</span>    <span class="keyword">struct </span>InMemoryTag {};</div>
 <div class="line"><a id="l00053" name="l00053"></a><span class="lineno">   53</span>    <a class="code hl_class" href="classStorageEngine.html">StorageEngine</a>(InMemoryTag, <span class="keywordtype">size_t</span> maxHistoryPerKey);</div>
 <div class="line"><a id="l00054" name="l00054"></a><span class="lineno">   54</span> </div>
-<div class="line"><a id="l00055" name="l00055"></a><span class="lineno">   55</span>    std::unordered_map&lt;std::string, std::vector&lt;Record&gt;&gt; m_data;</div>
-<div class="line"><a id="l00056" name="l00056"></a><span class="lineno">   56</span>    std::unique_ptr&lt;persistence::WAL&gt; m_wal;</div>
-<div class="line"><a id="l00057" name="l00057"></a><span class="lineno">   57</span>    std::string m_walPath;</div>
-<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span>    std::string m_snapshotPath;</div>
-<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span>    std::optional&lt;uint64_t&gt; m_snapshotEpoch;</div>
-<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span> </div>
-<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span>    <span class="keywordtype">size_t</span> m_maxHistoryPerKey;</div>
-<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span>    <span class="keyword">mutable</span> std::shared_mutex m_mutex;</div>
-<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span>};</div>
+<div class="line"><a id="l00057" name="l00057"></a><span class="lineno">   57</span>    <span class="keywordtype">void</span> appendCapped(<span class="keyword">const</span> std::string&amp; key, std::string value, <span class="keywordtype">double</span> duration, <span class="keywordtype">long</span> <span class="keywordtype">long</span> timestamp);</div>
+<div class="line"><a id="l00058" name="l00058"></a><span class="lineno">   58</span> </div>
+<div class="line"><a id="l00059" name="l00059"></a><span class="lineno">   59</span>    std::unordered_map&lt;std::string, std::vector&lt;Record&gt;&gt; m_data;</div>
+<div class="line"><a id="l00060" name="l00060"></a><span class="lineno">   60</span>    std::unique_ptr&lt;persistence::WAL&gt; m_wal;</div>
+<div class="line"><a id="l00061" name="l00061"></a><span class="lineno">   61</span>    std::string m_walPath;</div>
+<div class="line"><a id="l00062" name="l00062"></a><span class="lineno">   62</span>    std::string m_snapshotPath;</div>
+<div class="line"><a id="l00063" name="l00063"></a><span class="lineno">   63</span>    std::optional&lt;uint64_t&gt; m_snapshotEpoch;</div>
+<div class="line"><a id="l00064" name="l00064"></a><span class="lineno">   64</span> </div>
+<div class="line"><a id="l00065" name="l00065"></a><span class="lineno">   65</span>    <span class="keywordtype">size_t</span> m_maxHistoryPerKey;</div>
+<div class="line"><a id="l00066" name="l00066"></a><span class="lineno">   66</span>    <span class="keyword">mutable</span> std::shared_mutex m_mutex;</div>
+<div class="line"><a id="l00067" name="l00067"></a><span class="lineno">   67</span>};</div>
 </div>
 <div class="ttc" id="aWAL_8hpp_html"><div class="ttname"><a href="WAL_8hpp.html">WAL.hpp</a></div></div>
 <div class="ttc" id="aclassStorageEngine_html"><div class="ttname"><a href="classStorageEngine.html">StorageEngine</a></div><div class="ttdef"><b>Definition</b> StorageEngine.hpp:23</div></div>

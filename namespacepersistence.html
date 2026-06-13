@@ -73,14 +73,21 @@ $(function() {
   <div class="summary">
 <a href="#nested-classes">Classes</a> &#124;
 <a href="#typedef-members">Typedefs</a> &#124;
-<a href="#enum-members">Enumerations</a>  </div>
+<a href="#enum-members">Enumerations</a> &#124;
+<a href="#func-members">Functions</a>  </div>
   <div class="headertitle"><div class="title">persistence Namespace Reference</div></div>
 </div><!--header-->
 <div class="contents">
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="nested-classes" name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structpersistence_1_1Checkpoint.html">Checkpoint</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1CRC32.html">CRC32</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structpersistence_1_1RecoveryResult.html">RecoveryResult</a></td></tr>
+<tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1SHA256.html">SHA256</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1Snapshot.html">Snapshot</a></td></tr>
 <tr class="separator:"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -93,6 +100,9 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="typedef-members" name="typedef-members"></a>
 Typedefs</h2></td></tr>
+<tr class="memitem:adb18de5e56442f0d34e52d5a98e8254c" id="r_adb18de5e56442f0d34e52d5a98e8254c"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacepersistence.html#adb18de5e56442f0d34e52d5a98e8254c">Sha256Digest</a> = std::array&lt; uint8_t, 32 &gt;</td></tr>
+<tr class="memdesc:adb18de5e56442f0d34e52d5a98e8254c"><td class="mdescLeft">&#160;</td><td class="mdescRight">A 32-byte SHA-256 digest.  <br /></td></tr>
+<tr class="separator:adb18de5e56442f0d34e52d5a98e8254c"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab22ba9750700a701128311e717c49304" id="r_ab22ba9750700a701128311e717c49304"><td class="memItemLeft" align="right" valign="top">using&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacepersistence.html#ab22ba9750700a701128311e717c49304">SnapshotState</a> = std::unordered_map&lt; std::string, std::vector&lt; <a class="el" href="structpersistence_1_1SnapshotRecord.html">SnapshotRecord</a> &gt; &gt;</td></tr>
 <tr class="separator:ab22ba9750700a701128311e717c49304"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -102,8 +112,50 @@ Enumerations</h2></td></tr>
 , <a class="el" href="namespacepersistence.html#a182f88c7360b43b6f36185dffc1b3111a32f68a60cef40faedbc6af20298c1a1e">DELETE</a> = 2
  }</td></tr>
 <tr class="separator:a182f88c7360b43b6f36185dffc1b3111"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:af56647fab7e6e28842638b7e98427a7f" id="r_af56647fab7e6e28842638b7e98427a7f"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7f">RecoveryStatus</a> : uint8_t { <a class="el" href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7faa60852f204ed8028c1c58808b746d115">Ok</a>
+, <a class="el" href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7fa35dd6872226928a407d42220ff0e2f0e">TruncatedTail</a>
+, <a class="el" href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7fa692bc1cf4340ebe99b02477daa920f39">Tampered</a>
+ }</td></tr>
+<tr class="memdesc:af56647fab7e6e28842638b7e98427a7f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Outcome of walking the log chain during recovery or verification.  <a href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7f">More...</a><br /></td></tr>
+<tr class="separator:af56647fab7e6e28842638b7e98427a7f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+</table><table class="memberdecls">
+<tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="func-members" name="func-members"></a>
+Functions</h2></td></tr>
+<tr class="memitem:a80bc33d63b502dd1cd50ff49745612e0" id="r_a80bc33d63b502dd1cd50ff49745612e0"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacepersistence.html#a80bc33d63b502dd1cd50ff49745612e0">putLE32</a> (std::vector&lt; uint8_t &gt; &amp;buf, uint32_t v)</td></tr>
+<tr class="memdesc:a80bc33d63b502dd1cd50ff49745612e0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Appends <code>v</code> as 4 little-endian bytes.  <br /></td></tr>
+<tr class="separator:a80bc33d63b502dd1cd50ff49745612e0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a27257fe83c3c2229b2ee1b2861953b4d" id="r_a27257fe83c3c2229b2ee1b2861953b4d"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacepersistence.html#a27257fe83c3c2229b2ee1b2861953b4d">putLE64</a> (std::vector&lt; uint8_t &gt; &amp;buf, uint64_t v)</td></tr>
+<tr class="memdesc:a27257fe83c3c2229b2ee1b2861953b4d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Appends <code>v</code> as 8 little-endian bytes.  <br /></td></tr>
+<tr class="separator:a27257fe83c3c2229b2ee1b2861953b4d"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ac051a9effc07199aeacc31723be1dc2f" id="r_ac051a9effc07199aeacc31723be1dc2f"><td class="memItemLeft" align="right" valign="top">uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacepersistence.html#ac051a9effc07199aeacc31723be1dc2f">getLE32</a> (const uint8_t *p)</td></tr>
+<tr class="memdesc:ac051a9effc07199aeacc31723be1dc2f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads a little-endian uint32 from <code>p</code> (4 bytes).  <br /></td></tr>
+<tr class="separator:ac051a9effc07199aeacc31723be1dc2f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a0fe04c5a5cc695b9fc66e6bb1ff1ecf2" id="r_a0fe04c5a5cc695b9fc66e6bb1ff1ecf2"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacepersistence.html#a0fe04c5a5cc695b9fc66e6bb1ff1ecf2">getLE64</a> (const uint8_t *p)</td></tr>
+<tr class="memdesc:a0fe04c5a5cc695b9fc66e6bb1ff1ecf2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Reads a little-endian uint64 from <code>p</code> (8 bytes).  <br /></td></tr>
+<tr class="separator:a0fe04c5a5cc695b9fc66e6bb1ff1ecf2"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a9c5287c23d3141b7c6b0df3663ed2f19" id="r_a9c5287c23d3141b7c6b0df3663ed2f19"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacepersistence.html#a9c5287c23d3141b7c6b0df3663ed2f19">doubleToBits</a> (double d)</td></tr>
+<tr class="separator:a9c5287c23d3141b7c6b0df3663ed2f19"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a64b120892be1d436e66652be59af6ee5" id="r_a64b120892be1d436e66652be59af6ee5"><td class="memItemLeft" align="right" valign="top">double&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacepersistence.html#a64b120892be1d436e66652be59af6ee5">bitsToDouble</a> (uint64_t bits)</td></tr>
+<tr class="memdesc:a64b120892be1d436e66652be59af6ee5"><td class="mdescLeft">&#160;</td><td class="mdescRight">Inverse of <a class="el" href="namespacepersistence.html#a9c5287c23d3141b7c6b0df3663ed2f19">doubleToBits()</a>.  <br /></td></tr>
+<tr class="separator:a64b120892be1d436e66652be59af6ee5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Typedef Documentation</h2>
+<a id="adb18de5e56442f0d34e52d5a98e8254c" name="adb18de5e56442f0d34e52d5a98e8254c"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adb18de5e56442f0d34e52d5a98e8254c">&#9670;&#160;</a></span>Sha256Digest</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">using <a class="el" href="namespacepersistence.html#adb18de5e56442f0d34e52d5a98e8254c">persistence::Sha256Digest</a> = typedef std::array&lt;uint8_t, 32&gt;</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>A 32-byte SHA-256 digest. </p>
+
+</div>
+</div>
 <a id="ab22ba9750700a701128311e717c49304" name="ab22ba9750700a701128311e717c49304"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#ab22ba9750700a701128311e717c49304">&#9670;&#160;</a></span>SnapshotState</h2>
 
@@ -142,6 +194,228 @@ Enumerations</h2></td></tr>
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="a182f88c7360b43b6f36185dffc1b3111a3e75383a5992a6d15fb81e872e46e256" name="a182f88c7360b43b6f36185dffc1b3111a3e75383a5992a6d15fb81e872e46e256"></a>PUT&#160;</td><td class="fielddoc"></td></tr>
 <tr><td class="fieldname"><a id="a182f88c7360b43b6f36185dffc1b3111a32f68a60cef40faedbc6af20298c1a1e" name="a182f88c7360b43b6f36185dffc1b3111a32f68a60cef40faedbc6af20298c1a1e"></a>DELETE&#160;</td><td class="fielddoc"></td></tr>
 </table>
+
+</div>
+</div>
+<a id="af56647fab7e6e28842638b7e98427a7f" name="af56647fab7e6e28842638b7e98427a7f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#af56647fab7e6e28842638b7e98427a7f">&#9670;&#160;</a></span>RecoveryStatus</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum class <a class="el" href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7f">persistence::RecoveryStatus</a> : uint8_t</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">strong</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Outcome of walking the log chain during recovery or verification. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="af56647fab7e6e28842638b7e98427a7faa60852f204ed8028c1c58808b746d115" name="af56647fab7e6e28842638b7e98427a7faa60852f204ed8028c1c58808b746d115"></a>Ok&#160;</td><td class="fielddoc"><p>The whole chain verified cleanly. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="af56647fab7e6e28842638b7e98427a7fa35dd6872226928a407d42220ff0e2f0e" name="af56647fab7e6e28842638b7e98427a7fa35dd6872226928a407d42220ff0e2f0e"></a>TruncatedTail&#160;</td><td class="fielddoc"><p>A partial/torn write at the end was discarded (crash recovery). </p>
+</td></tr>
+<tr><td class="fieldname"><a id="af56647fab7e6e28842638b7e98427a7fa692bc1cf4340ebe99b02477daa920f39" name="af56647fab7e6e28842638b7e98427a7fa692bc1cf4340ebe99b02477daa920f39"></a>Tampered&#160;</td><td class="fielddoc"><p>An entry was modified, reordered, or deleted in place. </p>
+</td></tr>
+</table>
+
+</div>
+</div>
+<h2 class="groupheader">Function Documentation</h2>
+<a id="a64b120892be1d436e66652be59af6ee5" name="a64b120892be1d436e66652be59af6ee5"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a64b120892be1d436e66652be59af6ee5">&#9670;&#160;</a></span>bitsToDouble()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">double persistence::bitsToDouble </td>
+          <td>(</td>
+          <td class="paramtype">uint64_t&#160;</td>
+          <td class="paramname"><em>bits</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Inverse of <a class="el" href="namespacepersistence.html#a9c5287c23d3141b7c6b0df3663ed2f19">doubleToBits()</a>. </p>
+
+</div>
+</div>
+<a id="a9c5287c23d3141b7c6b0df3663ed2f19" name="a9c5287c23d3141b7c6b0df3663ed2f19"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a9c5287c23d3141b7c6b0df3663ed2f19">&#9670;&#160;</a></span>doubleToBits()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint64_t persistence::doubleToBits </td>
+          <td>(</td>
+          <td class="paramtype">double&#160;</td>
+          <td class="paramname"><em>d</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+<p>Reinterprets a double as its IEEE-754 bit pattern, so the on-disk layout is independent of how the host lays out floating-point types. </p>
+
+</div>
+</div>
+<a id="ac051a9effc07199aeacc31723be1dc2f" name="ac051a9effc07199aeacc31723be1dc2f"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ac051a9effc07199aeacc31723be1dc2f">&#9670;&#160;</a></span>getLE32()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint32_t persistence::getLE32 </td>
+          <td>(</td>
+          <td class="paramtype">const uint8_t *&#160;</td>
+          <td class="paramname"><em>p</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Reads a little-endian uint32 from <code>p</code> (4 bytes). </p>
+
+</div>
+</div>
+<a id="a0fe04c5a5cc695b9fc66e6bb1ff1ecf2" name="a0fe04c5a5cc695b9fc66e6bb1ff1ecf2"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a0fe04c5a5cc695b9fc66e6bb1ff1ecf2">&#9670;&#160;</a></span>getLE64()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">uint64_t persistence::getLE64 </td>
+          <td>(</td>
+          <td class="paramtype">const uint8_t *&#160;</td>
+          <td class="paramname"><em>p</em></td><td>)</td>
+          <td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Reads a little-endian uint64 from <code>p</code> (8 bytes). </p>
+
+</div>
+</div>
+<a id="a80bc33d63b502dd1cd50ff49745612e0" name="a80bc33d63b502dd1cd50ff49745612e0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a80bc33d63b502dd1cd50ff49745612e0">&#9670;&#160;</a></span>putLE32()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void persistence::putLE32 </td>
+          <td>(</td>
+          <td class="paramtype">std::vector&lt; uint8_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>buf</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint32_t&#160;</td>
+          <td class="paramname"><em>v</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Appends <code>v</code> as 4 little-endian bytes. </p>
+<p>Explicit little-endian (de)serialization helpers.</p>
+<p>On-disk files (<a class="el" href="classpersistence_1_1WAL.html">WAL</a>, snapshot) write every integer byte-by-byte in little-endian order so they stay portable regardless of host byte order. </p>
+
+</div>
+</div>
+<a id="a27257fe83c3c2229b2ee1b2861953b4d" name="a27257fe83c3c2229b2ee1b2861953b4d"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a27257fe83c3c2229b2ee1b2861953b4d">&#9670;&#160;</a></span>putLE64()</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">void persistence::putLE64 </td>
+          <td>(</td>
+          <td class="paramtype">std::vector&lt; uint8_t &gt; &amp;&#160;</td>
+          <td class="paramname"><em>buf</em>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">uint64_t&#160;</td>
+          <td class="paramname"><em>v</em>&#160;</td>
+        </tr>
+        <tr>
+          <td></td>
+          <td>)</td>
+          <td></td><td></td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">inline</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Appends <code>v</code> as 8 little-endian bytes. </p>
 
 </div>
 </div>

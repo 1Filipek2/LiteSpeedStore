@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['operator_3d_0',['operator=',['../classpersistence_1_1WAL.html#adbf82d3117336afb6c037a5e4855ada5',1,'persistence::WAL::operator=()'],['../classStorageEngine.html#aa352d73475bfbd2a3a4f3a864503545b',1,'StorageEngine::operator=()']]]
+  ['load_0',['load',['../classpersistence_1_1Snapshot.html#afc9218354424c35d8bd7d6e9ad69ba9f',1,'persistence::Snapshot']]]
 ];

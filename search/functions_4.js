@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['historycount_0',['historyCount',['../classStorageEngine.html#a7c4d7b3d9c5d66b0db44b7ed69602d9e',1,'StorageEngine']]]
+  ['epoch_0',['epoch',['../classpersistence_1_1WAL.html#acf15aa49fe3419586fc0c7c09b10ea2b',1,'persistence::WAL']]]
 ];
