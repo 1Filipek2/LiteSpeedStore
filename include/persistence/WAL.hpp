@@ -19,9 +19,12 @@ enum class RecordType : uint8_t {
  */
 class WAL {
 public:
+    /// Size of the on-disk file header: magic(4) + version(4) + flags(8).
+    static constexpr size_t kHeaderSize = 16;
+
     /**
      * @param syncEveryN  fsync() every N appends; 1 = sync on every write.
-     * @throws std::runtime_error if the file cannot be opened.
+     * @throws std::runtime_error if the file cannot be opened or has a corrupt header.
      */
     explicit WAL(const std::string& path, size_t syncEveryN = 1);
     ~WAL();
@@ -48,6 +51,9 @@ public:
     void close(); ///< Flushes pending writes before closing the fd.
 
 private:
+    bool writeHeader();    ///< Writes magic+version+flags and fsyncs. Caller must hold no lock concerns (single-threaded paths only).
+    bool validateHeader(); ///< Reads and checks magic+version of an existing file.
+
     std::string m_path;
     int m_fd = -1;
     uint64_t m_epoch = 0;

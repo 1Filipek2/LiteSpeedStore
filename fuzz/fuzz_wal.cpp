@@ -14,14 +14,25 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
 
     int fd = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd == -1) return 0;
-    const uint8_t* ptr = data;
-    size_t remaining = size;
-    while (remaining > 0) {
-        ssize_t n = ::write(fd, ptr, remaining);
-        if (n <= 0) break;
-        ptr += static_cast<size_t>(n);
-        remaining -= static_cast<size_t>(n);
-    }
+
+    // Prepend a valid 16-byte header (magic 'WSL1' LE, version 1, flags 0) so the
+    // WAL constructor accepts the file and the fuzz input exercises the entry
+    // parser in recover() rather than being rejected at the header check.
+    static const uint8_t header[persistence::WAL::kHeaderSize] = {
+        0x57, 0x53, 0x4C, 0x31,  // magic   = 0x314C5357
+        0x01, 0x00, 0x00, 0x00,  // version = 1
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00  // flags = 0
+    };
+    auto writeAll = [fd](const uint8_t* buf, size_t len) {
+        while (len > 0) {
+            ssize_t n = ::write(fd, buf, len);
+            if (n <= 0) break;
+            buf += static_cast<size_t>(n);
+            len -= static_cast<size_t>(n);
+        }
+    };
+    writeAll(header, sizeof(header));
+    writeAll(data, size);
     ::close(fd);
 
     try {

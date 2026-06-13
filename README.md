@@ -6,7 +6,8 @@ A small, fast, crash-safe in-memory key-value store written in C++17. Each key h
 
 - **Reader-writer concurrency** — `std::shared_mutex` allows unlimited concurrent reads; writes take an exclusive lock. Benchmarked to confirm the expected throughput ratio.
 - **WAL persistence with CRC32** — every entry is checksummed; partial writes at the tail are detected and truncated on recovery.
-- **Atomic snapshots** — `tmp-then-rename` pattern: the existing snapshot is never touched if a write fails.
+- **Durable atomic snapshots** — `write → fsync(file) → rename → fsync(dir)`: the existing snapshot is never touched if a write fails, and a committed snapshot survives a power loss.
+- **Portable on-disk format** — WAL and snapshot files carry a `magic + version` header and serialize all integers in explicit little-endian, so files are recognizable, versioned, and portable across architectures.
 - **Group-commit** — `syncEveryN` parameter trades per-write durability for throughput; benchmarked to show the trade-off.
 - **Cache-friendly storage** — history stored as `vector<Record>` (value types) rather than `vector<unique_ptr<Record>>` to avoid per-entry heap allocation and improve iteration locality.
 - **RAII profiling** — `TRACE_SCOPE` macro records elapsed time directly into the store without touching production data paths.
@@ -39,6 +40,21 @@ cmake --build build_fuzz --target FuzzWAL -j4
 The engine implements a durable, crash-safe persistence layer using a Write-Ahead Log (WAL), a snapshot file, and CRC-based integrity checks.
 
 ### `litespeed.wal` Layout
+
+The file starts with a fixed 16-byte header, followed by a sequence of entries.
+All multi-byte integers are little-endian.
+
+```
++----------------+----------------+------------------------------------------+
+| Header field   | Size (bytes)   | Description                              |
++----------------+----------------+------------------------------------------+
+| MAGIC          | 4              | "WSL1" (0x314C5357) — file identifier    |
+| VERSION        | 4              | Format version (currently 1)             |
+| FLAGS          | 8              | Reserved (0); future use, e.g. crypto    |
++----------------+----------------+------------------------------------------+
+```
+
+Each entry that follows the header:
 
 ```
 +----------------+----------------+------------------------------------------+

@@ -52,6 +52,10 @@ private:
     struct InMemoryTag {};
     StorageEngine(InMemoryTag, size_t maxHistoryPerKey);
 
+    /// Appends to a key's history, evicting the oldest past the cap. Caller must
+    /// hold m_mutex; shared by set() and recovery so both apply the cap identically.
+    void appendCapped(const std::string& key, std::string value, double duration, long long timestamp);
+
     std::unordered_map<std::string, std::vector<Record>> m_data;
     std::unique_ptr<persistence::WAL> m_wal;
     std::string m_walPath;

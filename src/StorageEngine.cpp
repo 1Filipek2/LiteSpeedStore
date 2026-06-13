@@ -40,19 +40,6 @@ persistence::SnapshotState exportSnapshotState(
     }
     return snapshotState;
 }
-void importSnapshotState(
-    const persistence::SnapshotState& snapshotState,
-    std::unordered_map<std::string, std::vector<Record>>& data
-) {
-    data.clear();
-    for (const auto& [key, history] : snapshotState) {
-        auto& records = data[key];
-        records.reserve(history.size());
-        for (const auto& record : history) {
-            records.emplace_back(record.value, record.timestamp, record.duration);
-        }
-    }
-}
 } // namespace
 StorageEngine::StorageEngine(const std::string& dbPath, size_t maxHistoryPerKey, size_t syncEveryN)
     : m_wal(std::make_unique<persistence::WAL>(dbPath, syncEveryN)),
@@ -75,7 +62,11 @@ void StorageEngine::recover() {
     persistence::SnapshotImage image;
     if (persistence::Snapshot::load(m_snapshotPath, image)) {
         m_snapshotEpoch = image.epoch;
-        importSnapshotState(image.state, m_data);
+        for (const auto& [key, history] : image.state) {
+            for (const auto& record : history) {
+                appendCapped(key, record.value, record.duration, record.timestamp);
+            }
+        }
         m_wal->setEpoch(image.epoch + 1);
     } else {
         m_wal->setEpoch(0);
@@ -83,11 +74,19 @@ void StorageEngine::recover() {
     m_wal->recover([this](persistence::RecordType type, const std::string& key, const std::string& blob, int64_t timestamp) {
         if (type == persistence::RecordType::PUT) {
             auto [duration, value] = deserialize(blob);
-            m_data[key].emplace_back(std::move(value), timestamp, duration);
+            appendCapped(key, std::move(value), duration, timestamp);
         } else if (type == persistence::RecordType::DELETE) {
             m_data.erase(key);
         }
     }, m_snapshotEpoch);
+}
+void StorageEngine::appendCapped(const std::string& key, std::string value, double duration, long long timestamp) {
+    auto& history = m_data[key];
+    if (m_maxHistoryPerKey != StorageEngine::kUnlimitedHistory &&
+        history.size() >= m_maxHistoryPerKey) {
+        history.erase(history.begin());
+    }
+    history.emplace_back(std::move(value), timestamp, duration);
 }
 void StorageEngine::set(const std::string& key, std::string value, double duration) {
     std::unique_lock<std::shared_mutex> lock(m_mutex);
@@ -97,12 +96,7 @@ void StorageEngine::set(const std::string& key, std::string value, double durati
         std::string blob = serialize(duration, value);
         m_wal->append(persistence::RecordType::PUT, key, blob, now);
     }
-    auto& history = m_data[key];
-    if (m_maxHistoryPerKey != StorageEngine::kUnlimitedHistory &&
-        history.size() >= m_maxHistoryPerKey) {
-        history.erase(history.begin());
-    }
-    history.emplace_back(std::move(value), now, duration);
+    appendCapped(key, std::move(value), duration, now);
 }
 std::optional<std::string> StorageEngine::get(const std::string& key) const {
     std::shared_lock<std::shared_mutex> lock(m_mutex);

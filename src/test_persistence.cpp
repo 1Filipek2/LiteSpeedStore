@@ -28,7 +28,8 @@ TEST_CASE("Persistence lifecycle: snapshot, WAL rotation, and recovery", "[persi
         REQUIRE(db.historyCount("key1") == 2);
         REQUIRE_NOTHROW(db.snapshot());
         REQUIRE(std::filesystem::exists(SNAP_PATH));
-        REQUIRE(std::filesystem::file_size(WAL_PATH) == 0);
+        // After rotation the WAL is empty of entries but retains its header.
+        REQUIRE(std::filesystem::file_size(WAL_PATH) == persistence::WAL::kHeaderSize);
         db.set("key1", "val3", 30.0);
         db.set("key2", "temp", 5.0);
         REQUIRE(db.remove("key2"));
@@ -108,6 +109,31 @@ TEST_CASE("History cap: oldest record is evicted when limit is reached", "[histo
     db.set("key", "val4", 4.0);
     REQUIRE(db.historyCount("key") == 3);
     REQUIRE(db.get("key").value() == "val4");
+
+    cleanup();
+}
+
+TEST_CASE("History cap is enforced during WAL replay after restart", "[history][persistence]") {
+    cleanup();
+
+    // Write 6 records under a cap of 3, with no snapshot — everything is in the WAL.
+    {
+        StorageEngine db(WAL_PATH, 3);
+        for (int i = 0; i < 6; ++i) {
+            db.set("key", "val" + std::to_string(i), static_cast<double>(i));
+        }
+        REQUIRE(db.historyCount("key") == 3);
+    }
+
+    // Reopen: recovery replays all 6 WAL entries and must re-apply the cap,
+    // so the post-restart state matches the live state (3 newest records).
+    {
+        StorageEngine db(WAL_PATH, 3);
+        REQUIRE(db.historyCount("key") == 3);
+        REQUIRE(db.get("key").value() == "val5");
+        // average of the 3 surviving durations: (3 + 4 + 5) / 3 == 4.0
+        REQUIRE(db.getAverage("key").value() == Catch::Approx(4.0).epsilon(0.001));
+    }
 
     cleanup();
 }
