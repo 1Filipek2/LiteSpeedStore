@@ -81,7 +81,10 @@ jobs:
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release -DFUZZ=ON -DCMAKE_CXX_COMPILER=clang++
 
       - name: Build
-        run: cmake --build build --target FuzzWAL -j4
+        run: cmake --build build --target FuzzWAL FuzzSnapshot -j4
 
-      - name: Fuzz (30s)
+      - name: Fuzz WAL (30s)
         run: ./build/FuzzWAL fuzz/corpus -max_total_time=30 -max_len=512 -error_exitcode=1 -close_fd_mask=2
+
+      - name: Fuzz snapshot (30s)
+        run: ./build/FuzzSnapshot fuzz/corpus_snapshot -max_total_time=30 -max_len=512 -error_exitcode=1 -close_fd_mask=2

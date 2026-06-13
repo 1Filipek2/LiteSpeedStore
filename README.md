@@ -12,7 +12,7 @@ A small, fast, crash-safe in-memory key-value store written in C++17, shaped as 
 - **Group-commit** — `syncEveryN` parameter trades per-write durability for throughput; benchmarked to show the trade-off.
 - **Cache-friendly storage** — history stored as `vector<Record>` (value types) rather than `vector<unique_ptr<Record>>` to avoid per-entry heap allocation and improve iteration locality.
 - **RAII profiling** — `TRACE_SCOPE` macro records elapsed time directly into the store without touching production data paths.
-- **Fuzz testing** — libFuzzer harness feeds random bytes into `WAL::recover()` under AddressSanitizer + UBSan; runs 30 seconds in CI on every push.
+- **Fuzz testing** — libFuzzer harnesses feed random bytes into both the WAL and snapshot parsers under AddressSanitizer + UBSan; run in CI on every push.
 - **CI pipeline** — GitHub Actions: Debug build, AddressSanitizer, ThreadSanitizer, libFuzzer, and Doxygen → GitHub Pages.
 
 ## Architecture
@@ -92,7 +92,7 @@ cmake --build build --parallel
 
 # libFuzzer (requires clang)
 cmake -B build_fuzz -DCMAKE_BUILD_TYPE=Release -DFUZZ=ON -DCMAKE_CXX_COMPILER=clang++
-cmake --build build_fuzz --target FuzzWAL -j4
+cmake --build build_fuzz --target FuzzWAL FuzzSnapshot -j4
 ./build_fuzz/FuzzWAL fuzz/corpus -max_total_time=60 -max_len=512
 ```
 
@@ -190,15 +190,19 @@ ctest --test-dir build --output-on-failure
 
 ### Fuzz Testing
 
-The WAL recovery parser is hardened with a libFuzzer harness (`fuzz/fuzz_wal.cpp`). It writes random bytes to a temp file and calls `WAL::recover()` under AddressSanitizer + UBSan — any crash, heap overflow, or undefined behaviour fails the run.
+Both on-disk parsers are hardened with libFuzzer harnesses under AddressSanitizer + UBSan — any crash, over-read, or over-allocation fails the run:
+
+- `fuzz/fuzz_wal.cpp` feeds random bytes through `WAL::recover()`.
+- `fuzz/fuzz_snapshot.cpp` wraps the input in a valid header (matching CRC) so it reaches `Snapshot::load()`'s length-driven parsing.
 
 ```bash
 cmake -B build_fuzz -DCMAKE_BUILD_TYPE=Release -DFUZZ=ON -DCMAKE_CXX_COMPILER=clang++
-cmake --build build_fuzz --target FuzzWAL -j4
-./build_fuzz/FuzzWAL fuzz/corpus -max_total_time=60 -max_len=512
+cmake --build build_fuzz --target FuzzWAL FuzzSnapshot -j4
+./build_fuzz/FuzzWAL      fuzz/corpus          -max_total_time=60 -max_len=512
+./build_fuzz/FuzzSnapshot fuzz/corpus_snapshot -max_total_time=60 -max_len=512
 ```
 
-CI runs this for 30 seconds on every push (see `.github/workflows/ci.yml`, job `fuzz`).
+CI runs both for 30 seconds on every push (see `.github/workflows/ci.yml`, job `fuzz`).
 
 ## Benchmarks
 

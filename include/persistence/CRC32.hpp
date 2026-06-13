@@ -1,4 +1,5 @@
 #pragma once
+#include <cstddef>
 #include <cstdint>
 #include <array>
 
@@ -6,10 +7,10 @@ namespace persistence {
 
 class CRC32 {
 public:
-    static uint32_t calculate(const void* data, size_t length) {
+    static uint32_t calculate(const void* data, std::size_t length) {
         uint32_t crc = 0xFFFFFFFF;
         const uint8_t* p = static_cast<const uint8_t*>(data);
-        for (size_t i = 0; i < length; ++i) {
+        for (std::size_t i = 0; i < length; ++i) {
             crc = table[(crc ^ p[i]) & 0xFF] ^ (crc >> 8);
         }
         return ~crc;
