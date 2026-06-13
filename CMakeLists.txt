@@ -58,6 +58,19 @@ add_executable(Benchmark
 target_link_libraries(Benchmark PRIVATE litespeed_core)
 target_compile_options(Benchmark PRIVATE ${LITESPEED_WARNING_FLAGS})
 
+# Verifier CLI + end-to-end tamper-evidence demo.
+add_executable(litespeed-verify tools/verify.cpp)
+target_link_libraries(litespeed-verify PRIVATE litespeed_core)
+target_compile_options(litespeed-verify PRIVATE ${LITESPEED_WARNING_FLAGS})
+
+add_executable(litespeed-demo tools/demo.cpp)
+target_link_libraries(litespeed-demo PRIVATE litespeed_core)
+target_compile_options(litespeed-demo PRIVATE ${LITESPEED_WARNING_FLAGS})
+
+# Smoke test: the demo must end-to-end detect the injected tampering.
+add_test(NAME Demo COMMAND litespeed-demo)
+set_tests_properties(Demo PROPERTIES PASS_REGULAR_EXPRESSION "TAMPERING DETECTED")
+
 # Fuzzing — requires clang: cmake -DFUZZ=ON -DCMAKE_CXX_COMPILER=clang++
 option(FUZZ "Build libFuzzer harness (requires clang -fsanitize=fuzzer)" OFF)
 

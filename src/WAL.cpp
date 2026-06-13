@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <vector>
+
 namespace persistence {
 namespace {
 bool writeExact(int fd, const void* data, size_t size) {
@@ -194,12 +195,8 @@ void WAL::append(RecordType type, const std::string& key, const std::string& val
 RecoveryResult WAL::walkChain(
     const std::function<void(RecordType, const std::string&, const std::string&, int64_t)>& visitor,
     std::optional<uint64_t> minEpochExclusive,
-    bool allowTruncate,
-    uint64_t& outSeq,
-    Sha256Digest& outHead) {
+    bool allowTruncate) {
     RecoveryResult result;
-    outSeq = 0;
-    outHead = Sha256Digest{};
     if (m_fd == -1) return result;
 
     struct stat st;
@@ -210,6 +207,17 @@ RecoveryResult WAL::walkChain(
     Sha256Digest prevHash{};
     uint64_t expectedSeq = 0;
     bool torn = false;
+
+    // Builds a tamper result anchored at the last entry that verified.
+    auto tampered = [&](off_t pos) {
+        RecoveryResult r;
+        r.status = RecoveryStatus::Tampered;
+        r.entriesVerified = expectedSeq;
+        r.tamperOffset = static_cast<uint64_t>(pos);
+        r.tamperSeq = expectedSeq;
+        r.headHash = prevHash;
+        return r;
+    };
 
     while (current_pos < st.st_size) {
         // A short read here means the writer was interrupted mid-entry — a torn
@@ -229,8 +237,7 @@ RecoveryResult WAL::walkChain(
         // write — flag it rather than silently truncating valid entries after it.
         constexpr uint32_t MAX_FIELD_SIZE = 1u << 20; // 1 MiB
         if (key_len > MAX_FIELD_SIZE || value_len > MAX_FIELD_SIZE) {
-            return RecoveryResult{RecoveryStatus::Tampered,
-                                  static_cast<uint64_t>(current_pos), expectedSeq};
+            return tampered(current_pos);
         }
 
         std::string key(key_len, '\0');
@@ -248,8 +255,7 @@ RecoveryResult WAL::walkChain(
         entry.insert(entry.end(), value.begin(), value.end());
         entry.insert(entry.end(), hash_bytes, hash_bytes + HASH_SIZE);
         if (CRC32::calculate(entry.data(), entry.size()) != stored_crc) {
-            return RecoveryResult{RecoveryStatus::Tampered,
-                                  static_cast<uint64_t>(current_pos), expectedSeq};
+            return tampered(current_pos);
         }
 
         SHA256 ctx;
@@ -259,12 +265,10 @@ RecoveryResult WAL::walkChain(
         ctx.update(reinterpret_cast<const uint8_t*>(value.data()), value.size());
         const Sha256Digest computed = ctx.digest();
         if (std::memcmp(computed.data(), hash_bytes, HASH_SIZE) != 0) {
-            return RecoveryResult{RecoveryStatus::Tampered,
-                                  static_cast<uint64_t>(current_pos), expectedSeq};
+            return tampered(current_pos);
         }
         if (seq != expectedSeq) { // a gap means an entry was deleted or reordered
-            return RecoveryResult{RecoveryStatus::Tampered,
-                                  static_cast<uint64_t>(current_pos), seq};
+            return tampered(current_pos);
         }
 
         const uint64_t epoch = getLE64(fixed + 16);
@@ -278,13 +282,13 @@ RecoveryResult WAL::walkChain(
 
         prevHash = computed;
         expectedSeq = seq + 1;
-        outSeq = expectedSeq;
-        outHead = computed;
 
         current_pos = ::lseek(m_fd, 0, SEEK_CUR);
         if (current_pos == static_cast<off_t>(-1)) { torn = true; break; }
     }
 
+    result.entriesVerified = expectedSeq;
+    result.headHash = prevHash;
     if (torn) {
         result.status = RecoveryStatus::TruncatedTail;
         std::cerr << "Detected corruption or partial write at end of WAL. Truncating to "
@@ -303,22 +307,18 @@ RecoveryResult WAL::recover(
     std::optional<uint64_t> minEpochExclusive
 ) {
     std::lock_guard<std::mutex> lock(m_mutex);
-    uint64_t seq = 0;
-    Sha256Digest head{};
-    RecoveryResult result = walkChain(visitor, minEpochExclusive, /*allowTruncate=*/true, seq, head);
+    RecoveryResult result = walkChain(visitor, minEpochExclusive, /*allowTruncate=*/true);
     // Adopt the verified chain state so subsequent appends continue the chain.
     // On tampering we leave the file untouched and do not advance state.
     if (result.status != RecoveryStatus::Tampered) {
-        m_seq = seq;
-        m_headHash = head;
+        m_seq = result.entriesVerified;
+        m_headHash = result.headHash;
     }
     return result;
 }
 RecoveryResult WAL::verify() {
     std::lock_guard<std::mutex> lock(m_mutex);
-    uint64_t seq = 0;
-    Sha256Digest head{};
     std::function<void(RecordType, const std::string&, const std::string&, int64_t)> noVisitor;
-    return walkChain(noVisitor, std::nullopt, /*allowTruncate=*/false, seq, head);
+    return walkChain(noVisitor, std::nullopt, /*allowTruncate=*/false);
 }
 } // namespace persistence

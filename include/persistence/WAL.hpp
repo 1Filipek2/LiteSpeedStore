@@ -24,8 +24,10 @@ enum class RecoveryStatus : uint8_t {
 
 struct RecoveryResult {
     RecoveryStatus status = RecoveryStatus::Ok;
-    uint64_t tamperOffset = 0; ///< Byte offset of the first bad entry (Tampered only).
-    uint64_t tamperSeq = 0;    ///< Sequence number expected at that point (Tampered only).
+    uint64_t entriesVerified = 0; ///< Count of entries whose CRC + hash chain verified.
+    uint64_t tamperOffset = 0;    ///< Byte offset of the first bad entry (Tampered only).
+    uint64_t tamperSeq = 0;       ///< Sequence number expected at that point (Tampered only).
+    Sha256Digest headHash{};      ///< Chain hash after the last verified entry (the checkpoint anchor).
 };
 
 /// A tamper-evidence anchor: the chain head an agent would ship to a trusted
@@ -82,13 +84,11 @@ private:
     bool validateHeader(); ///< Reads and checks magic+version of an existing file.
 
     /// Shared walk used by recover() and verify(). Verifies CRC, chain hash, and
-    /// seq monotonicity; reports the final seq/head via out-params.
+    /// seq monotonicity. @p allowTruncate discards a torn tail in-place.
     RecoveryResult walkChain(
         const std::function<void(RecordType, const std::string&, const std::string&, int64_t)>& visitor,
         std::optional<uint64_t> minEpochExclusive,
-        bool allowTruncate,
-        uint64_t& outSeq,
-        Sha256Digest& outHead);
+        bool allowTruncate);
 
     std::string m_path;
     int m_fd = -1;

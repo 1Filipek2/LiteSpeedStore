@@ -39,6 +39,34 @@ flowchart TD
     E -->|"tampering detected"| FAIL(["throw — refuse to load"])
 ```
 
+## Demo — tamper evidence in action
+
+`litespeed-demo` records a few endpoint events, verifies the chain, flips a
+single byte, then re-verifies — the change is caught at the exact offset:
+
+```text
+LiteSpeedStore - tamper-evidence demo
+=====================================
+
+[agent]    recorded 3 events to /tmp/litespeed_demo.wal
+[agent]    checkpoint to anchor remotely:  seq=3  head=d04cb4dfd191108f...
+
+[verify]   chain intact — 3 entries verified  [OK]
+
+[attacker] flipped 1 byte at offset 66 (inside event #0's recorded data)
+
+[verify]   TAMPERING DETECTED at offset 16 (after 0 valid entries)  [FAIL]
+```
+
+`litespeed-verify <wal>` runs the same read-only check as a standalone tool
+(exit code `0` = intact, `1` = tampering, `2` = error) — the kind an agent runs
+against its journal, or a remote service against an uploaded copy.
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --target litespeed-demo litespeed-verify
+./build/litespeed-demo
+```
+
 ## Building
 
 ```bash
