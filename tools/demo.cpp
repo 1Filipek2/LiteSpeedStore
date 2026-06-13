@@ -1,7 +1,6 @@
-#include "persistence/Endian.hpp"
 #include "persistence/WAL.hpp"
 
-#include <cstdint>
+#include <algorithm>
 #include <cstdio>
 #include <fstream>
 #include <iostream>
@@ -48,10 +47,12 @@ int main() {
     std::cout << "LiteSpeedStore - tamper-evidence demo\n"
               << "=====================================\n\n";
 
+    const std::string firstValue = "C:\\Temp\\evil.exe"; // event #0's recorded data
+
     // 1. The agent records a few endpoint events into the hash-chained log.
     {
         persistence::WAL wal(kDemoWal);
-        wal.append(persistence::RecordType::PUT, "process.start", "C:\\Temp\\evil.exe", 1);
+        wal.append(persistence::RecordType::PUT, "process.start", firstValue, 1);
         wal.append(persistence::RecordType::PUT, "net.connect",   "203.0.113.7:443", 2);
         wal.append(persistence::RecordType::PUT, "file.delete",   "C:\\Windows\\prefetch\\evil.pf", 3);
         const persistence::Checkpoint cp = wal.head();
@@ -74,13 +75,12 @@ int main() {
                                  std::istreambuf_iterator<char>());
         in.close();
 
-        // Locate the first byte of event #0's value:
-        // header + crc(4) + fixed(33), with key_len read from the fixed header.
-        const uint8_t* base = reinterpret_cast<const uint8_t*>(bytes.data());
-        const uint32_t key_len = persistence::getLE32(base + persistence::WAL::kHeaderSize + 4 + 24);
-        const size_t target = persistence::WAL::kHeaderSize + 4 + 33 + key_len;
-        if (target < bytes.size()) {
-            bytes[target] = static_cast<char>(bytes[target] ^ 0x20);
+        // Find event #0's recorded value in the raw log and flip its first byte
+        // (no need to know the on-disk field offsets).
+        auto it = std::search(bytes.begin(), bytes.end(), firstValue.begin(), firstValue.end());
+        if (it != bytes.end()) {
+            const size_t target = static_cast<size_t>(it - bytes.begin());
+            bytes[target] = static_cast<char>(bytes[target] ^ 0x20); // toggle ASCII case
             std::ofstream out(kDemoWal, std::ios::binary | std::ios::trunc);
             out.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
             out.close();

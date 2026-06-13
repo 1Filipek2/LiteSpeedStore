@@ -4,6 +4,7 @@
 #include "StorageEngine.hpp"
 #include "persistence/SHA256.hpp"
 #include "persistence/WAL.hpp"
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <filesystem>
@@ -238,11 +239,14 @@ TEST_CASE("Tamper evidence: flipping one byte mid-log is detected", "[tamper]") 
     }
 
     // Flip a byte inside the first entry (which has entries after it, so this is
-    // an interior modification, not a torn tail). Offset 53 is the first key byte:
-    // header(16) + crc(4) + seq(8) + ts(8) + epoch(8) + key_len(4) + value_len(4) + type(1).
+    // an interior modification, not a torn tail). We locate event #0 by its key
+    // rather than hard-coding a byte offset.
     std::vector<char> bytes = readAll(WAL_PATH);
-    REQUIRE(bytes.size() > 53);
-    bytes[53] = static_cast<char>(bytes[53] ^ 0x01);
+    const std::string needle = "key1";
+    auto it = std::search(bytes.begin(), bytes.end(), needle.begin(), needle.end());
+    REQUIRE(it != bytes.end());
+    const size_t target = static_cast<size_t>(it - bytes.begin());
+    bytes[target] = static_cast<char>(bytes[target] ^ 0x01);
     writeAll(WAL_PATH, bytes);
 
     // Read-only verification reports tampering at the first entry, file untouched.

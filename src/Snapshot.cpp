@@ -20,7 +20,11 @@ namespace {
 
 constexpr uint32_t MAGIC   = 0x534E4150; // "SNAP"
 constexpr uint32_t VERSION = 1;
-constexpr size_t   HEADER_SIZE = 12;     // magic(4) + version(4) + crc(4)
+// Header field offsets, derived from field sizes: magic(4) | version(4) | crc(4).
+constexpr size_t OFF_MAGIC   = 0;
+constexpr size_t OFF_VERSION = OFF_MAGIC + sizeof(uint32_t);
+constexpr size_t OFF_CRC     = OFF_VERSION + sizeof(uint32_t);
+constexpr size_t HEADER_SIZE = OFF_CRC + sizeof(uint32_t);
 
 // minimum on-disk size of one record (timestamp + duration + value_len) and of
 // one key entry (key_len + record_count). Used to reject absurd counts read from
@@ -137,9 +141,9 @@ bool Snapshot::load(const std::string& path, SnapshotImage& image) {
     in.read(reinterpret_cast<char*>(header), HEADER_SIZE);
     if (!in) return false;
 
-    const uint32_t magic   = getLE32(header);
-    const uint32_t version = getLE32(header + 4);
-    const uint32_t storedCRC = getLE32(header + 8);
+    const uint32_t magic   = getLE32(header + OFF_MAGIC);
+    const uint32_t version = getLE32(header + OFF_VERSION);
+    const uint32_t storedCRC = getLE32(header + OFF_CRC);
     if (magic != MAGIC || version != VERSION) return false;
 
     // read everything after the header and verify the checksum.

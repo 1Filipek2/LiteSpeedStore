@@ -44,10 +44,25 @@ bool readExact(int fd, void* data, size_t size) {
 }
 constexpr uint32_t WAL_MAGIC   = 0x314C5357; // bytes 'W','S','L','1' on disk (little-endian)
 constexpr uint32_t WAL_VERSION = 2;          // v2 adds seq + chain_hash per entry
-// Fixed-size portion of each entry after the CRC:
-// seq(8) + timestamp_low(4) + timestamp_high(4) + epoch(8) + key_len(4) + value_len(4) + type(1).
-constexpr size_t ENTRY_FIXED_SIZE = 33;
-constexpr size_t HASH_SIZE = 32;
+
+// File header field offsets: magic(4) | version(4) | flags(8).
+constexpr size_t HDR_OFF_MAGIC   = 0;
+constexpr size_t HDR_OFF_VERSION = HDR_OFF_MAGIC + sizeof(uint32_t);
+constexpr size_t HDR_OFF_FLAGS   = HDR_OFF_VERSION + sizeof(uint32_t);
+static_assert(HDR_OFF_FLAGS + sizeof(uint64_t) == WAL::kHeaderSize, "WAL header layout mismatch");
+
+// Field offsets within the fixed portion of an entry (after the CRC), derived
+// from the field sizes so the layout is single-sourced:
+//   seq(8) | timestamp_low(4) | timestamp_high(4) | epoch(8) | key_len(4) | value_len(4) | type(1)
+constexpr size_t OFF_SEQ       = 0;
+constexpr size_t OFF_TS_LOW    = OFF_SEQ + sizeof(uint64_t);
+constexpr size_t OFF_TS_HIGH   = OFF_TS_LOW + sizeof(uint32_t);
+constexpr size_t OFF_EPOCH     = OFF_TS_HIGH + sizeof(uint32_t);
+constexpr size_t OFF_KEY_LEN   = OFF_EPOCH + sizeof(uint64_t);
+constexpr size_t OFF_VALUE_LEN = OFF_KEY_LEN + sizeof(uint32_t);
+constexpr size_t OFF_TYPE      = OFF_VALUE_LEN + sizeof(uint32_t);
+constexpr size_t ENTRY_FIXED_SIZE = OFF_TYPE + sizeof(uint8_t);
+constexpr size_t HASH_SIZE = sizeof(Sha256Digest);
 } // namespace
 WAL::WAL(const std::string& path, size_t syncEveryN)
     : m_path(path), m_syncEveryN(syncEveryN < 1 ? 1 : syncEveryN) {
@@ -88,8 +103,8 @@ bool WAL::validateHeader() {
     if (::lseek(m_fd, 0, SEEK_SET) == -1) return false;
     uint8_t header[kHeaderSize];
     if (!readExact(m_fd, header, kHeaderSize)) return false;
-    if (getLE32(header) != WAL_MAGIC) return false;
-    if (getLE32(header + 4) != WAL_VERSION) return false;
+    if (getLE32(header + HDR_OFF_MAGIC) != WAL_MAGIC) return false;
+    if (getLE32(header + HDR_OFF_VERSION) != WAL_VERSION) return false;
     return true;
 }
 uint64_t WAL::epoch() const {
@@ -222,16 +237,16 @@ RecoveryResult WAL::walkChain(
     while (current_pos < st.st_size) {
         // A short read here means the writer was interrupted mid-entry — a torn
         // tail from a crash, which is legitimately discarded.
-        uint8_t crc_bytes[4];
+        uint8_t crc_bytes[sizeof(uint32_t)];
         if (!readExact(m_fd, crc_bytes, sizeof(crc_bytes))) { torn = true; break; }
         const uint32_t stored_crc = getLE32(crc_bytes);
 
         uint8_t fixed[ENTRY_FIXED_SIZE];
         if (!readExact(m_fd, fixed, ENTRY_FIXED_SIZE)) { torn = true; break; }
-        const uint64_t seq       = getLE64(fixed + 0);
-        const uint32_t key_len   = getLE32(fixed + 24);
-        const uint32_t value_len = getLE32(fixed + 28);
-        const uint8_t type_byte  = fixed[32];
+        const uint64_t seq       = getLE64(fixed + OFF_SEQ);
+        const uint32_t key_len   = getLE32(fixed + OFF_KEY_LEN);
+        const uint32_t value_len = getLE32(fixed + OFF_VALUE_LEN);
+        const uint8_t type_byte  = fixed[OFF_TYPE];
 
         // An absurd length on a fully-present header is corruption, not a torn
         // write — flag it rather than silently truncating valid entries after it.
@@ -271,10 +286,10 @@ RecoveryResult WAL::walkChain(
             return tampered(current_pos);
         }
 
-        const uint64_t epoch = getLE64(fixed + 16);
+        const uint64_t epoch = getLE64(fixed + OFF_EPOCH);
         if (visitor && (!minEpochExclusive || epoch > *minEpochExclusive)) {
-            const uint32_t timestamp_low  = getLE32(fixed + 8);
-            const uint32_t timestamp_high = getLE32(fixed + 12);
+            const uint32_t timestamp_low  = getLE32(fixed + OFF_TS_LOW);
+            const uint32_t timestamp_high = getLE32(fixed + OFF_TS_HIGH);
             const int64_t entryTs = static_cast<int64_t>(
                 (static_cast<uint64_t>(timestamp_high) << 32) | timestamp_low);
             visitor(static_cast<RecordType>(type_byte), key, value, entryTs);
