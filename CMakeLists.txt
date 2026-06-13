@@ -45,12 +45,15 @@ add_executable(LiteSpeedStore
 target_link_libraries(LiteSpeedStore PRIVATE litespeed_core)
 target_compile_options(LiteSpeedStore PRIVATE ${LITESPEED_WARNING_FLAGS})
 
-add_executable(TestPersistence
-    src/test_persistence.cpp
+add_executable(Tests
+    tests/sha256_test.cpp
+    tests/wal_test.cpp
+    tests/storage_engine_test.cpp
 )
-target_link_libraries(TestPersistence PRIVATE litespeed_core Catch2::Catch2WithMain)
-target_compile_options(TestPersistence PRIVATE ${LITESPEED_WARNING_FLAGS})
-add_test(NAME TestPersistence COMMAND TestPersistence)
+target_link_libraries(Tests PRIVATE litespeed_core Catch2::Catch2WithMain)
+target_include_directories(Tests PRIVATE tests)
+target_compile_options(Tests PRIVATE ${LITESPEED_WARNING_FLAGS})
+add_test(NAME Tests COMMAND Tests)
 
 add_executable(Benchmark
     benchmark/bench_litespeed.cpp
