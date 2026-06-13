@@ -42,6 +42,7 @@ static std::string toHex(const persistence::Sha256Digest& d) {
 static void cleanup() {
     if (std::filesystem::exists(WAL_PATH))  std::filesystem::remove(WAL_PATH);
     if (std::filesystem::exists(SNAP_PATH)) std::filesystem::remove(SNAP_PATH);
+    if (std::filesystem::exists(SNAP_PATH + ".tmp")) std::filesystem::remove(SNAP_PATH + ".tmp");
 }
 
 TEST_CASE("Persistence lifecycle: snapshot, WAL rotation, and recovery", "[persistence]") {
@@ -293,6 +294,58 @@ TEST_CASE("Tamper evidence: deleting a middle entry breaks the chain", "[tamper]
     persistence::WAL wal(WAL_PATH);
     const persistence::RecoveryResult r = wal.verify();
     REQUIRE(r.status == persistence::RecoveryStatus::Tampered);
+
+    cleanup();
+}
+
+TEST_CASE("Crash injection: a half-written tail entry is discarded on recovery", "[crash]") {
+    cleanup();
+
+    {
+        StorageEngine db(WAL_PATH);
+        db.set("k", "v1", 1.0);
+        db.set("k", "v2", 2.0);
+        db.set("k", "v3", 3.0);
+    }
+
+    // Simulate a crash mid-append: chop the last entry short so its trailing
+    // hash can no longer be read in full.
+    const auto size = std::filesystem::file_size(WAL_PATH);
+    REQUIRE(size > 20);
+    std::filesystem::resize_file(WAL_PATH, size - 20);
+
+    {
+        StorageEngine db(WAL_PATH);
+        REQUIRE(db.historyCount("k") == 2);       // torn tail dropped, prefix kept
+        REQUIRE(db.get("k").value() == "v2");
+    }
+
+    cleanup();
+}
+
+TEST_CASE("Crash injection: a stale snapshot .tmp is ignored", "[crash]") {
+    cleanup();
+
+    {
+        StorageEngine db(WAL_PATH);
+        db.set("k", "v1", 1.0);
+        db.snapshot();           // a good snapshot is committed
+        db.set("k", "v2", 2.0);  // and one more entry lands in the rotated WAL
+    }
+
+    // Simulate a crash during the next snapshot, before the atomic rename:
+    // a partial .tmp is left behind next to the valid .snap.
+    {
+        std::ofstream tmp(SNAP_PATH + ".tmp", std::ios::binary | std::ios::trunc);
+        tmp << "garbage-partial-snapshot";
+    }
+
+    {
+        StorageEngine db(WAL_PATH);
+        REQUIRE(db.get("k").value() == "v2");   // loads the good .snap, replays the WAL
+        REQUIRE(db.historyCount("k") == 2);
+    }
+    REQUIRE(std::filesystem::exists(SNAP_PATH + ".tmp")); // engine never consumes the .tmp
 
     cleanup();
 }
