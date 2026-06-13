@@ -1,4 +1,18 @@
+<div align="center">
+
 # LiteSpeedStore
+
+**A fast, crash-safe, tamper-evident journal of events — in modern C++17.**
+
+[![CI](https://github.com/1Filipek2/LiteSpeedStore/actions/workflows/ci.yml/badge.svg)](https://github.com/1Filipek2/LiteSpeedStore/actions/workflows/ci.yml)
+![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)
+![CMake](https://img.shields.io/badge/build-CMake-064F8C?logo=cmake&logoColor=white)
+![hardening](https://img.shields.io/badge/hardening-ASan%20%C2%B7%20TSan%20%C2%B7%20libFuzzer%20%C2%B7%20clang--tidy-2ea44f)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+<img src="assets/demo.gif" alt="Tamper-evidence demo: events are recorded, one byte is flipped, and the verifier catches it at the exact offset" width="760">
+
+</div>
 
 A small, fast, crash-safe in-memory key-value store written in C++17, shaped as a **tamper-evident journal of events**. Each key holds an ordered history of values with timestamps and durations, backed by a Write-Ahead Log and periodic snapshots. The log is hash-chained, so any modification, reordering, or mid-log deletion is cryptographically detectable.
 
@@ -42,9 +56,8 @@ flowchart TD
 ## Demo — tamper evidence in action
 
 `litespeed-demo` records a few endpoint events, verifies the chain, flips a
-single byte, then re-verifies — the change is caught at the exact offset:
-
-![Tamper-evidence demo: events are recorded, one byte is flipped, and the verifier catches it at the exact offset](assets/demo.gif)
+single byte, then re-verifies — the change is caught at the exact offset (this
+is the animation at the top of the README):
 
 <details>
 <summary>Sample output (text)</summary>
@@ -251,3 +264,7 @@ To generate locally:
 doxygen Doxyfile
 open docs/html/index.html
 ```
+
+## License
+
+Released under the [MIT License](LICENSE).
