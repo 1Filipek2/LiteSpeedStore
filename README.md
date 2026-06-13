@@ -1,11 +1,12 @@
 # LiteSpeedStore
 
-A small, fast, crash-safe in-memory key-value store written in C++17. Each key holds an ordered history of values with timestamps and durations, backed by a Write-Ahead Log and periodic snapshots.
+A small, fast, crash-safe in-memory key-value store written in C++17, shaped as a **tamper-evident journal of events**. Each key holds an ordered history of values with timestamps and durations, backed by a Write-Ahead Log and periodic snapshots. The log is hash-chained, so any modification, reordering, or mid-log deletion is cryptographically detectable.
 
 ## What it demonstrates
 
+- **Tamper-evident hash chain** — each WAL entry stores `chain_hash = SHA256(prev_hash ‖ entry)` plus a monotonic `seq`. Recovery verifies the chain and reports the exact offset of any in-place modification, reordering, or deletion; a tampered journal is refused rather than silently loaded. See [THREATMODEL.md](THREATMODEL.md).
 - **Reader-writer concurrency** — `std::shared_mutex` allows unlimited concurrent reads; writes take an exclusive lock. Benchmarked to confirm the expected throughput ratio.
-- **WAL persistence with CRC32** — every entry is checksummed; partial writes at the tail are detected and truncated on recovery.
+- **WAL persistence with CRC32** — every entry is checksummed; partial writes at the tail are detected and truncated on recovery, and distinguished from tampering.
 - **Durable atomic snapshots** — `write → fsync(file) → rename → fsync(dir)`: the existing snapshot is never touched if a write fails, and a committed snapshot survives a power loss.
 - **Portable on-disk format** — WAL and snapshot files carry a `magic + version` header and serialize all integers in explicit little-endian, so files are recognizable, versioned, and portable across architectures.
 - **Group-commit** — `syncEveryN` parameter trades per-write durability for throughput; benchmarked to show the trade-off.
@@ -13,6 +14,30 @@ A small, fast, crash-safe in-memory key-value store written in C++17. Each key h
 - **RAII profiling** — `TRACE_SCOPE` macro records elapsed time directly into the store without touching production data paths.
 - **Fuzz testing** — libFuzzer harness feeds random bytes into `WAL::recover()` under AddressSanitizer + UBSan; runs 30 seconds in CI on every push.
 - **CI pipeline** — GitHub Actions: Debug build, AddressSanitizer, ThreadSanitizer, libFuzzer, and Doxygen → GitHub Pages.
+
+## Architecture
+
+A write goes to the WAL (durably) and to the in-memory history; a snapshot
+periodically folds the state to disk and rotates the log.
+
+```mermaid
+flowchart LR
+    C(["client"]) -->|"set() / remove()"| E["StorageEngine"]
+    E -->|"append: CRC + SHA-256 chain, then fsync"| W[("litespeed.wal")]
+    E -->|"update history"| M["in-memory map"]
+    E -.->|"snapshot(): durable write + WAL rotation"| S[("litespeed.snap")]
+```
+
+On startup the state is rebuilt from the snapshot, then the WAL is replayed —
+verifying the hash chain. A torn tail from a crash is truncated; tampering is refused.
+
+```mermaid
+flowchart TD
+    S[("litespeed.snap")] -->|"1. restore full state"| E["StorageEngine"]
+    W[("litespeed.wal")] -->|"2. replay entries with epoch > snapshot<br/>3. verify hash chain"| E
+    E -->|"chain OK"| OK(["serve reads / writes"])
+    E -->|"tampering detected"| FAIL(["throw — refuse to load"])
+```
 
 ## Building
 
@@ -49,18 +74,20 @@ All multi-byte integers are little-endian.
 | Header field   | Size (bytes)   | Description                              |
 +----------------+----------------+------------------------------------------+
 | MAGIC          | 4              | "WSL1" (0x314C5357) — file identifier    |
-| VERSION        | 4              | Format version (currently 1)             |
+| VERSION        | 4              | Format version (currently 2)             |
 | FLAGS          | 8              | Reserved (0); future use, e.g. crypto    |
 +----------------+----------------+------------------------------------------+
 ```
 
-Each entry that follows the header:
+Each entry that follows the header. `CHAIN_HASH = SHA256(prev_hash ‖ SEQ..VALUE)`,
+where `prev_hash` is the previous entry's hash (all-zero for the first entry):
 
 ```
 +----------------+----------------+------------------------------------------+
 | Field          | Size (bytes)   | Description                              |
 +----------------+----------------+------------------------------------------+
 | CRC32          | 4              | Checksum of the entire entry (after CRC) |
+| SEQ            | 8              | Monotonic sequence number (gap = tamper) |
 | TIMESTAMP_LOW  | 4              | Epoch nanoseconds (low 32 bits)          |
 | TIMESTAMP_HIGH | 4              | Epoch nanoseconds (high 32 bits)         |
 | EPOCH          | 8              | Snapshot generation for the entry        |
@@ -69,8 +96,27 @@ Each entry that follows the header:
 | TYPE           | 1              | 1 = PUT, 2 = DELETE                      |
 | KEY            | KEY_LEN        | The raw key data                         |
 | VALUE          | VALUE_LEN      | Serialized [Duration(8) + Value(N)]      |
+| CHAIN_HASH     | 32             | SHA-256 linking this entry to the chain  |
 +----------------+----------------+------------------------------------------+
 ```
+
+#### Hash chain — tamper evidence
+
+Each entry's `CHAIN_HASH` folds in the previous entry's hash, so every record is
+bound to all records before it. Modifying, reordering, or deleting any entry
+breaks every hash downstream, and recovery reports the exact offset.
+
+```mermaid
+flowchart LR
+    H0["prev = 0…0"] --> E0["entry 0<br/>seq · ts · key · value"]
+    E0 -->|"SHA256(prev ‖ entry)"| C0["chain_hash₀"]
+    C0 --> E1["entry 1"]
+    E1 -->|"SHA256(prev ‖ entry)"| C1["chain_hash₁"]
+    C1 --> E2["entry 2"]
+    E2 -->|"SHA256(prev ‖ entry)"| C2["chain_hash₂"]
+```
+
+See [THREATMODEL.md](THREATMODEL.md) for the guarantees and their limits.
 
 ### `litespeed.snap` Layout
 
@@ -126,16 +172,16 @@ Run: `./build/Benchmark`
 
 | Scenario | Ops | Time | Throughput |
 |---|---|---|---|
-| `set()` single-thread | 500 000 | 81.8 ms | **6 109 749 ops/s** |
-| `get()` single-thread | 500 000 | 11.8 ms | **42 477 614 ops/s** |
-| `getAverage()` single-thread (100-entry history) | 500 000 | 44.4 ms | **11 272 299 ops/s** |
-| Mixed 4 writers + 4 readers (concurrent) | 1 600 000 | 380.9 ms | **4 200 534 ops/s** |
+| `set()` single-thread | 500 000 | 47.4 ms | **10 540 235 ops/s** |
+| `get()` single-thread | 500 000 | 8.5 ms | **58 859 108 ops/s** |
+| `getAverage()` single-thread (100-entry history) | 500 000 | 32.1 ms | **15 571 353 ops/s** |
+| Mixed 4 writers + 4 readers (concurrent) | 1 600 000 | 432.2 ms | **3 702 288 ops/s** |
 
 *Measured on Linux x86-64, Release build (`-O3`), in-memory store. History stored as `vector<Record>` (value types) for cache-friendly iteration.*
 
 **Key observations:**
 
-- `get()` is **7.0× faster** than `set()` — `shared_mutex` correctly allows concurrent reads while serialising only writes.
+- `get()` is **5.6× faster** than `set()` — `shared_mutex` correctly allows concurrent reads while serialising only writes.
 - Switching from `vector<unique_ptr<Record>>` to `vector<Record>` improved `getAverage()` by **+15.6%** and concurrent throughput by **+57.2%** — eliminating per-record heap allocations and improving cache locality during history iteration.
 - Concurrent throughput drops vs. single-thread because 4 writers each acquire a `unique_lock`, blocking all readers. This is the expected cost of write-heavy workloads; a read-heavy workload would scale much better.
 
@@ -145,13 +191,15 @@ Run: `./build/Benchmark`
 
 | Scenario | Ops | Time | Throughput |
 |---|---|---|---|
-| WAL `set()` syncEveryN=1 (max durability) | 256 022 | 500 ms | **512 043 ops/s** |
-| WAL `set()` syncEveryN=16 | 291 318 | 500 ms | **582 635 ops/s** |
-| WAL `set()` syncEveryN=64 | 291 293 | 500 ms | **582 583 ops/s** |
+| WAL `set()` syncEveryN=1 (max durability) | 276 281 | 500 ms | **552 561 ops/s** |
+| WAL `set()` syncEveryN=16 | 291 549 | 500 ms | **583 096 ops/s** |
+| WAL `set()` syncEveryN=64 | 307 350 | 500 ms | **614 700 ops/s** |
 
 *Measured on NVMe SSD; on HDD the gap is much larger (~100–200 ops/s at syncEveryN=1).*
 
 `syncEveryN=1` guarantees each write survives a crash. `syncEveryN=N` risks losing the last N−1 writes on power failure — a deliberate durability trade-off, not a bug.
+
+The per-entry SHA-256 hash chain is cheap relative to `fsync`: at `syncEveryN=1` the durable path is fsync-bound, so tamper-evidence costs almost nothing; batching (higher `syncEveryN`) amortizes the fsync and lets throughput rise, with the hashing only a small fraction of per-write cost. (The in-memory figures above take no WAL path and are unaffected.)
 
 ## API Documentation
 

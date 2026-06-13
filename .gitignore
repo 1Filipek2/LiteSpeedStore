@@ -1,5 +1,4 @@
-build/
-build_fuzz/
+build*/
 bin/
 obj/
 cmake-build-debug/
