@@ -13,7 +13,7 @@ A small, fast, crash-safe in-memory key-value store written in C++17, shaped as 
 - **Cache-friendly storage** — history stored as `vector<Record>` (value types) rather than `vector<unique_ptr<Record>>` to avoid per-entry heap allocation and improve iteration locality.
 - **RAII profiling** — `TRACE_SCOPE` macro records elapsed time directly into the store without touching production data paths.
 - **Fuzz testing** — libFuzzer harnesses feed random bytes into both the WAL and snapshot parsers under AddressSanitizer + UBSan; run in CI on every push.
-- **CI pipeline** — GitHub Actions: Debug build, AddressSanitizer, ThreadSanitizer, libFuzzer, and Doxygen → GitHub Pages.
+- **CI pipeline** — GitHub Actions: Debug build, AddressSanitizer, ThreadSanitizer, libFuzzer, clang-tidy (enforced), and Doxygen → GitHub Pages.
 
 ## Architecture
 

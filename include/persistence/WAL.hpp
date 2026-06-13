@@ -70,7 +70,7 @@ public:
      * (and the file is left intact so the evidence survives).
      */
     RecoveryResult recover(
-        std::function<void(RecordType, const std::string&, const std::string&, int64_t)> visitor,
+        const std::function<void(RecordType, const std::string&, const std::string&, int64_t)>& visitor,
         std::optional<uint64_t> minEpochExclusive = std::nullopt
     );
 

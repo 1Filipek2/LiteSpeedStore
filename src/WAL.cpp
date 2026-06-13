@@ -123,7 +123,7 @@ bool WAL::reset() {
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_fd == -1) return false;
     if (::fsync(m_fd) == -1) {
-        std::cerr << "WAL fsync before reset failed" << std::endl;
+        std::cerr << "WAL fsync before reset failed" << '\n';
     }
     if (::ftruncate(m_fd, 0) == -1) {
         return false;
@@ -307,10 +307,10 @@ RecoveryResult WAL::walkChain(
     if (torn) {
         result.status = RecoveryStatus::TruncatedTail;
         std::cerr << "Detected corruption or partial write at end of WAL. Truncating to "
-                  << current_pos << std::endl;
+                  << current_pos << '\n';
         if (allowTruncate) {
             if (::ftruncate(m_fd, current_pos) == -1) {
-                std::cerr << "Failed to truncate WAL!" << std::endl;
+                std::cerr << "Failed to truncate WAL!" << '\n';
             }
             ::lseek(m_fd, 0, SEEK_END);
         }
@@ -318,7 +318,7 @@ RecoveryResult WAL::walkChain(
     return result;
 }
 RecoveryResult WAL::recover(
-    std::function<void(RecordType, const std::string&, const std::string&, int64_t)> visitor,
+    const std::function<void(RecordType, const std::string&, const std::string&, int64_t)>& visitor,
     std::optional<uint64_t> minEpochExclusive
 ) {
     std::lock_guard<std::mutex> lock(m_mutex);

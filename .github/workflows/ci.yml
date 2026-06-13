@@ -88,3 +88,17 @@ jobs:
 
       - name: Fuzz snapshot (30s)
         run: ./build/FuzzSnapshot fuzz/corpus_snapshot -max_total_time=30 -max_len=512 -error_exitcode=1 -close_fd_mask=2
+
+  clang-tidy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-tidy
+        run: sudo apt-get install -y clang-tidy
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Run clang-tidy
+        run: clang-tidy -p build src/*.cpp tools/*.cpp

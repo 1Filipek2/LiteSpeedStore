@@ -1,0 +1,14 @@
+# High-signal static analysis. Opinionated/noisy families (modernize, the full
+# cppcoreguidelines set) are left out on purpose; what remains catches real bugs
+# and inefficiencies and is enforced (warnings are errors).
+Checks: >
+  -*,
+  clang-analyzer-*,
+  bugprone-*,
+  performance-*,
+  portability-*,
+  -bugprone-easily-swappable-parameters,
+  -clang-analyzer-unix.BlockInCriticalSection,
+  -portability-avoid-pragma-once
+WarningsAsErrors: '*'
+HeaderFilterRegex: '(StorageEngine|FastTrace|WAL|Snapshot|CRC32|SHA256|Endian)\.hpp$'

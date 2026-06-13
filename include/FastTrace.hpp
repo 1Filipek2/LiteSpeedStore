@@ -10,7 +10,7 @@ class Timer {
 public:
     using Clock = std::chrono::high_resolution_clock;
 
-    Timer(std::string /*name*/, std::function<void(double)> callback)
+    Timer(const std::string& /*name*/, std::function<void(double)> callback)
         : m_callback(std::move(callback)) {
         m_start = Clock::now();
     }
@@ -28,6 +28,6 @@ private:
 
 /** Writes elapsed ms to @p engine under @p name when the enclosing scope exits. */
 #define TRACE_SCOPE(name, engine) \
-    Timer timer##__LINE__(name, [&](double ms) { \
-        engine.set(name, std::to_string(ms) + " ms", ms); \
+    Timer timer##__LINE__((name), [&](double ms) { \
+        (engine).set((name), std::to_string(ms) + " ms", ms); \
     })
