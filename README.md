@@ -44,6 +44,11 @@ flowchart TD
 `litespeed-demo` records a few endpoint events, verifies the chain, flips a
 single byte, then re-verifies — the change is caught at the exact offset:
 
+![Tamper-evidence demo: events are recorded, one byte is flipped, and the verifier catches it at the exact offset](assets/demo.gif)
+
+<details>
+<summary>Sample output (text)</summary>
+
 ```text
 LiteSpeedStore - tamper-evidence demo
 =====================================
@@ -57,6 +62,9 @@ LiteSpeedStore - tamper-evidence demo
 
 [verify]   TAMPERING DETECTED at offset 16 (after 0 valid entries)  [FAIL]
 ```
+</details>
+
+The GIF is reproducible with [`vhs`](https://github.com/charmbracelet/vhs): `vhs assets/demo.tape`.
 
 `litespeed-verify <wal>` runs the same read-only check as a standalone tool
 (exit code `0` = intact, `1` = tampering, `2` = error) — the kind an agent runs
