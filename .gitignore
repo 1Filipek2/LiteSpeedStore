@@ -15,6 +15,7 @@ Makefile
 *.snap
 
 docs/
+reviews/
 
 .vscode/
 .idea/
