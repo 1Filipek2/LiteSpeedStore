@@ -119,6 +119,9 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a9147f6d4cee864a3510c518d581d65e1" id="r_a9147f6d4cee864a3510c518d581d65e1"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classStorageEngine.html#a9147f6d4cee864a3510c518d581d65e1">kUnlimitedHistory</a> = 0</td></tr>
 <tr class="memdesc:a9147f6d4cee864a3510c518d581d65e1"><td class="mdescLeft">&#160;</td><td class="mdescRight">0 = no cap.  <br /></td></tr>
 <tr class="separator:a9147f6d4cee864a3510c518d581d65e1"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4b468e8f51e4b255b1bf9c16257a29eb" id="r_a4b468e8f51e4b255b1bf9c16257a29eb"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classStorageEngine.html#a4b468e8f51e4b255b1bf9c16257a29eb">kMaxFieldSize</a> = persistence::WAL::kMaxFieldSize - sizeof(double)</td></tr>
+<tr class="memdesc:a4b468e8f51e4b255b1bf9c16257a29eb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Largest value <a class="el" href="classStorageEngine.html#a401e29cbeb11c0e55c35623146011221">set()</a> accepts: duration and value share one WAL field.  <br /></td></tr>
+<tr class="separator:a4b468e8f51e4b255b1bf9c16257a29eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Thread-safe key-value store. Reads use shared_lock; writes use unique_lock. </p>
@@ -413,6 +416,30 @@ Static Public Attributes</h2></td></tr>
 </div>
 </div>
 <h2 class="groupheader">Member Data Documentation</h2>
+<a id="a4b468e8f51e4b255b1bf9c16257a29eb" name="a4b468e8f51e4b255b1bf9c16257a29eb"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4b468e8f51e4b255b1bf9c16257a29eb">&#9670;&#160;</a></span>kMaxFieldSize</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr size_t StorageEngine::kMaxFieldSize = persistence::WAL::kMaxFieldSize - sizeof(double)</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Largest value <a class="el" href="classStorageEngine.html#a401e29cbeb11c0e55c35623146011221">set()</a> accepts: duration and value share one WAL field. </p>
+
+</div>
+</div>
 <a id="a9147f6d4cee864a3510c518d581d65e1" name="a9147f6d4cee864a3510c518d581d65e1"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9147f6d4cee864a3510c518d581d65e1">&#9670;&#160;</a></span>kUnlimitedHistory</h2>
 

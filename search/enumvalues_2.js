@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['put_0',['PUT',['../namespacepersistence.html#a182f88c7360b43b6f36185dffc1b3111a3e75383a5992a6d15fb81e872e46e256',1,'persistence']]]
+  ['ok_0',['Ok',['../namespacepersistence.html#af56647fab7e6e28842638b7e98427a7faa60852f204ed8028c1c58808b746d115',1,'persistence']]]
 ];

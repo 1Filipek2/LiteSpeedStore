@@ -91,10 +91,10 @@ Public Attributes</h2></td></tr>
 <tr class="memdesc:aab99a527fd9d77842addd1ce985bb201"><td class="mdescLeft">&#160;</td><td class="mdescRight">Count of entries whose CRC + hash chain verified.  <br /></td></tr>
 <tr class="separator:aab99a527fd9d77842addd1ce985bb201"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a07f6daedab686fafc37d791fe0480e57" id="r_a07f6daedab686fafc37d791fe0480e57"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structpersistence_1_1RecoveryResult.html#a07f6daedab686fafc37d791fe0480e57">tamperOffset</a> = 0</td></tr>
-<tr class="memdesc:a07f6daedab686fafc37d791fe0480e57"><td class="mdescLeft">&#160;</td><td class="mdescRight">Byte offset of the first bad entry (Tampered only).  <br /></td></tr>
+<tr class="memdesc:a07f6daedab686fafc37d791fe0480e57"><td class="mdescLeft">&#160;</td><td class="mdescRight">Byte offset of the first bad entry (Tampered/Malformed only).  <br /></td></tr>
 <tr class="separator:a07f6daedab686fafc37d791fe0480e57"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a290c70e47b37640ac8f48e806863e82d" id="r_a290c70e47b37640ac8f48e806863e82d"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structpersistence_1_1RecoveryResult.html#a290c70e47b37640ac8f48e806863e82d">tamperSeq</a> = 0</td></tr>
-<tr class="memdesc:a290c70e47b37640ac8f48e806863e82d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sequence number expected at that point (Tampered only).  <br /></td></tr>
+<tr class="memdesc:a290c70e47b37640ac8f48e806863e82d"><td class="mdescLeft">&#160;</td><td class="mdescRight">Sequence number expected at that point (Tampered/Malformed only).  <br /></td></tr>
 <tr class="separator:a290c70e47b37640ac8f48e806863e82d"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:afbf78bd2fcf162b0da86d2c23d010cab" id="r_afbf78bd2fcf162b0da86d2c23d010cab"><td class="memItemLeft" align="right" valign="top"><a class="el" href="namespacepersistence.html#adb18de5e56442f0d34e52d5a98e8254c">Sha256Digest</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structpersistence_1_1RecoveryResult.html#afbf78bd2fcf162b0da86d2c23d010cab">headHash</a> {}</td></tr>
 <tr class="memdesc:afbf78bd2fcf162b0da86d2c23d010cab"><td class="mdescLeft">&#160;</td><td class="mdescRight">Chain hash after the last verified entry (the checkpoint anchor).  <br /></td></tr>
@@ -159,7 +159,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Byte offset of the first bad entry (Tampered only). </p>
+<p>Byte offset of the first bad entry (Tampered/Malformed only). </p>
 
 </div>
 </div>
@@ -175,7 +175,7 @@ Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Sequence number expected at that point (Tampered only). </p>
+<p>Sequence number expected at that point (Tampered/Malformed only). </p>
 
 </div>
 </div>

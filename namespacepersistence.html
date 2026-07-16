@@ -114,6 +114,7 @@ Enumerations</h2></td></tr>
 <tr class="separator:a182f88c7360b43b6f36185dffc1b3111"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:af56647fab7e6e28842638b7e98427a7f" id="r_af56647fab7e6e28842638b7e98427a7f"><td class="memItemLeft" align="right" valign="top">enum class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7f">RecoveryStatus</a> : uint8_t { <a class="el" href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7faa60852f204ed8028c1c58808b746d115">Ok</a>
 , <a class="el" href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7fa35dd6872226928a407d42220ff0e2f0e">TruncatedTail</a>
+, <a class="el" href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7fa0dc7301026e66d38061d7eaba481c9a5">Malformed</a>
 , <a class="el" href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7fa692bc1cf4340ebe99b02477daa920f39">Tampered</a>
  }</td></tr>
 <tr class="memdesc:af56647fab7e6e28842638b7e98427a7f"><td class="mdescLeft">&#160;</td><td class="mdescRight">Outcome of walking the log chain during recovery or verification.  <a href="namespacepersistence.html#af56647fab7e6e28842638b7e98427a7f">More...</a><br /></td></tr>
@@ -222,6 +223,8 @@ Functions</h2></td></tr>
 <tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="af56647fab7e6e28842638b7e98427a7faa60852f204ed8028c1c58808b746d115" name="af56647fab7e6e28842638b7e98427a7faa60852f204ed8028c1c58808b746d115"></a>Ok&#160;</td><td class="fielddoc"><p>The whole chain verified cleanly. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="af56647fab7e6e28842638b7e98427a7fa35dd6872226928a407d42220ff0e2f0e" name="af56647fab7e6e28842638b7e98427a7fa35dd6872226928a407d42220ff0e2f0e"></a>TruncatedTail&#160;</td><td class="fielddoc"><p>A partial/torn write at the end was discarded (crash recovery). </p>
+</td></tr>
+<tr><td class="fieldname"><a id="af56647fab7e6e28842638b7e98427a7fa0dc7301026e66d38061d7eaba481c9a5" name="af56647fab7e6e28842638b7e98427a7fa0dc7301026e66d38061d7eaba481c9a5"></a>Malformed&#160;</td><td class="fielddoc"><p>A field exceeds the policy cap: a foreign or stale file, not tamper evidence. </p>
 </td></tr>
 <tr><td class="fieldname"><a id="af56647fab7e6e28842638b7e98427a7fa692bc1cf4340ebe99b02477daa920f39" name="af56647fab7e6e28842638b7e98427a7fa692bc1cf4340ebe99b02477daa920f39"></a>Tampered&#160;</td><td class="fielddoc"><p>An entry was modified, reordered, or deleted in place. </p>
 </td></tr>

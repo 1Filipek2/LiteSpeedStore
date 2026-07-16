@@ -95,7 +95,7 @@ Public Member Functions</h2></td></tr>
 <tr class="memitem:adbf82d3117336afb6c037a5e4855ada5" id="r_adbf82d3117336afb6c037a5e4855ada5"><td class="memItemLeft" align="right" valign="top"><a class="el" href="classpersistence_1_1WAL.html">WAL</a> &amp;&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1WAL.html#adbf82d3117336afb6c037a5e4855ada5">operator=</a> (const <a class="el" href="classpersistence_1_1WAL.html">WAL</a> &amp;)=delete</td></tr>
 <tr class="separator:adbf82d3117336afb6c037a5e4855ada5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a55a9e752a1a78ec4245f3e3ef5575d61" id="r_a55a9e752a1a78ec4245f3e3ef5575d61"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1WAL.html#a55a9e752a1a78ec4245f3e3ef5575d61">append</a> (<a class="el" href="namespacepersistence.html#a182f88c7360b43b6f36185dffc1b3111">RecordType</a> type, const std::string &amp;key, const std::string &amp;value, int64_t timestamp)</td></tr>
-<tr class="memdesc:a55a9e752a1a78ec4245f3e3ef5575d61"><td class="mdescLeft">&#160;</td><td class="mdescRight">Throws on write or fsync failure.  <br /></td></tr>
+<tr class="memdesc:a55a9e752a1a78ec4245f3e3ef5575d61"><td class="mdescLeft">&#160;</td><td class="mdescRight">Throws std::length_error over kMaxFieldSize; std::runtime_error on I/O failure.  <br /></td></tr>
 <tr class="separator:a55a9e752a1a78ec4245f3e3ef5575d61"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:acf15aa49fe3419586fc0c7c09b10ea2b" id="r_acf15aa49fe3419586fc0c7c09b10ea2b"><td class="memItemLeft" align="right" valign="top">uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1WAL.html#acf15aa49fe3419586fc0c7c09b10ea2b">epoch</a> () const</td></tr>
 <tr class="separator:acf15aa49fe3419586fc0c7c09b10ea2b"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -122,6 +122,9 @@ Static Public Attributes</h2></td></tr>
 <tr class="memitem:a877bdaf4c6fb4129ecc46d8461ab850b" id="r_a877bdaf4c6fb4129ecc46d8461ab850b"><td class="memItemLeft" align="right" valign="top">static constexpr size_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1WAL.html#a877bdaf4c6fb4129ecc46d8461ab850b">kHeaderSize</a> = 16</td></tr>
 <tr class="memdesc:a877bdaf4c6fb4129ecc46d8461ab850b"><td class="mdescLeft">&#160;</td><td class="mdescRight">Size of the on-disk file header: magic(4) + version(4) + flags(8).  <br /></td></tr>
 <tr class="separator:a877bdaf4c6fb4129ecc46d8461ab850b"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a92eabac5533b3e3598dbf1b3ce839897" id="r_a92eabac5533b3e3598dbf1b3ce839897"><td class="memItemLeft" align="right" valign="top">static constexpr uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1WAL.html#a92eabac5533b3e3598dbf1b3ce839897">kMaxFieldSize</a> = 1u &lt;&lt; 20</td></tr>
+<tr class="memdesc:a92eabac5533b3e3598dbf1b3ce839897"><td class="mdescLeft">&#160;</td><td class="mdescRight">Cap on a key or value field, enforced on append and on read (see DECISIONS.md).  <br /></td></tr>
+<tr class="separator:a92eabac5533b3e3598dbf1b3ce839897"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Append-only write-ahead log with a SHA-256 hash chain for tamper evidence. Entry layout: <a class="el" href="classpersistence_1_1CRC32.html">CRC32</a> | seq | timestamp | epoch | key_len | value_len | type | key | value | chain_hash, where chain_hash = <a class="el" href="classpersistence_1_1SHA256.html">SHA256</a>(prev_hash | seq..value). </p>
@@ -256,7 +259,7 @@ Static Public Attributes</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Throws on write or fsync failure. </p>
+<p>Throws std::length_error over kMaxFieldSize; std::runtime_error on I/O failure. </p>
 
 </div>
 </div>
@@ -450,6 +453,30 @@ Static Public Attributes</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Size of the on-disk file header: magic(4) + version(4) + flags(8). </p>
+
+</div>
+</div>
+<a id="a92eabac5533b3e3598dbf1b3ce839897" name="a92eabac5533b3e3598dbf1b3ce839897"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a92eabac5533b3e3598dbf1b3ce839897">&#9670;&#160;</a></span>kMaxFieldSize</h2>
+
+<div class="memitem">
+<div class="memproto">
+<table class="mlabels">
+  <tr>
+  <td class="mlabels-left">
+      <table class="memname">
+        <tr>
+          <td class="memname">constexpr uint32_t persistence::WAL::kMaxFieldSize = 1u &lt;&lt; 20</td>
+        </tr>
+      </table>
+  </td>
+  <td class="mlabels-right">
+<span class="mlabels"><span class="mlabel">static</span><span class="mlabel">constexpr</span></span>  </td>
+  </tr>
+</table>
+</div><div class="memdoc">
+
+<p>Cap on a key or value field, enforced on append and on read (see DECISIONS.md). </p>
 
 </div>
 </div>
