@@ -134,6 +134,41 @@ TEST_CASE("Tamper evidence: deleting a middle entry breaks the chain", "[tamper]
     cleanup();
 }
 
+TEST_CASE("Field size: a corrupt mid-log length is reported, not truncated away", "[wal][corruption]") {
+    cleanup();
+
+    {
+        StorageEngine db(WAL_PATH);
+        db.set("kA", "vv", 1.0);
+        db.set("kB", "vv", 2.0);
+        db.set("kC", "vv", 3.0);
+    }
+
+    // Blow up the first entry's value_len. Without the cap this reads past EOF,
+    // looks like a torn tail, and takes the two valid entries after it. Located by
+    // content: the fixed fields end with key_len(4) | value_len(4) | type(1).
+    std::vector<char> bytes = readAll(WAL_PATH);
+    const std::string needle = "kA";
+    auto it = std::search(bytes.begin(), bytes.end(), needle.begin(), needle.end());
+    REQUIRE(it != bytes.end());
+    const size_t valueLenPos = static_cast<size_t>(it - bytes.begin()) - 5;
+    for (size_t i = 0; i < 4; ++i) bytes[valueLenPos + i] = char(0xFF);
+    writeAll(WAL_PATH, bytes);
+
+    {
+        persistence::WAL wal(WAL_PATH);
+        const persistence::RecoveryResult r = wal.verify();
+        REQUIRE(r.status == persistence::RecoveryStatus::Malformed);
+        REQUIRE(r.tamperOffset == persistence::WAL::kHeaderSize);
+    }
+
+    // Refused as a foreign/stale file, and the evidence is left on disk intact.
+    REQUIRE_THROWS_AS(StorageEngine(WAL_PATH), std::runtime_error);
+    REQUIRE(readAll(WAL_PATH).size() == bytes.size());
+
+    cleanup();
+}
+
 TEST_CASE("Crash injection: a half-written tail entry is discarded on recovery", "[crash]") {
     cleanup();
 

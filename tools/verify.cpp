@@ -45,6 +45,11 @@ int main(int argc, char** argv) {
                 std::cout << "WARN  torn tail after " << r.entriesVerified
                           << " entries (incomplete final write)\n";
                 return 0;
+            case persistence::RecoveryStatus::Malformed:
+                std::cout << "ERROR field exceeds the size limit at offset " << r.tamperOffset
+                          << " (after " << r.entriesVerified << " valid entries)\n"
+                          << "      not tamper evidence: a foreign or stale file\n";
+                return 2;
             case persistence::RecoveryStatus::Tampered:
                 std::cout << "FAIL  TAMPERING DETECTED at offset " << r.tamperOffset
                           << " (after " << r.entriesVerified << " valid entries)\n";

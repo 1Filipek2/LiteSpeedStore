@@ -24,6 +24,9 @@ class StorageEngine {
 public:
     static constexpr size_t kUnlimitedHistory = 0; ///< 0 = no cap.
 
+    /// Largest value set() accepts: duration and value share one WAL field.
+    static constexpr size_t kMaxFieldSize = persistence::WAL::kMaxFieldSize - sizeof(double);
+
     /**
      * @param syncEveryN  fsync() every N appends. 1 = every write is durable;
      *                    higher values trade durability for throughput.

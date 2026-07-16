@@ -7,6 +7,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -157,6 +158,61 @@ TEST_CASE("Crash injection: a stale snapshot .tmp is ignored", "[crash]") {
         REQUIRE(db.historyCount("k") == 2);
     }
     REQUIRE(std::filesystem::exists(SNAP_PATH + ".tmp")); // engine never consumes the .tmp
+
+    cleanup();
+}
+
+TEST_CASE("Field size: an oversize value is rejected by set(), not at recovery", "[field_size][persistence]") {
+    cleanup();
+
+    {
+        StorageEngine db(WAL_PATH);
+
+        std::string oversize_value(StorageEngine::kMaxFieldSize + 1, 'x');
+        REQUIRE_THROWS_AS(db.set("key", oversize_value, 1.0), std::length_error);
+
+        // a rejected write leaves no trace: the engine stays usable
+        db.set("key", "small", 2.0);
+        REQUIRE(db.get("key").value() == "small");
+        REQUIRE(db.historyCount("key") == 1);
+    }
+
+    // The invariant: an oversize field never reaches the log, so verify() has
+    // nothing to call tampering.
+    {
+        persistence::WAL wal(WAL_PATH);
+        REQUIRE(wal.verify().status == persistence::RecoveryStatus::Ok);
+    }
+    {
+        StorageEngine db(WAL_PATH);
+        REQUIRE(db.get("key").value() == "small");
+    }
+
+    cleanup();
+}
+
+TEST_CASE("Field size: values around the limit round-trip and verify clean", "[field_size][persistence]") {
+    cleanup();
+
+    const size_t limit = StorageEngine::kMaxFieldSize;
+    const std::vector<size_t> sizes{0, 1, limit - 1, limit};
+
+    {
+        StorageEngine db(WAL_PATH);
+        for (size_t n : sizes) {
+            db.set("k" + std::to_string(n), std::string(n, 'x'), 1.0);
+        }
+    }
+    {
+        persistence::WAL wal(WAL_PATH);
+        REQUIRE(wal.verify().status == persistence::RecoveryStatus::Ok);
+    }
+    {
+        StorageEngine db(WAL_PATH);
+        for (size_t n : sizes) {
+            REQUIRE(db.get("k" + std::to_string(n)).value().size() == n);
+        }
+    }
 
     cleanup();
 }

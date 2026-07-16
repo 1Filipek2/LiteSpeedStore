@@ -33,6 +33,10 @@ void printVerify(const persistence::RecoveryResult& r) {
         case persistence::RecoveryStatus::TruncatedTail:
             std::cout << "[verify]   torn tail after " << r.entriesVerified << " entries\n";
             break;
+        case persistence::RecoveryStatus::Malformed:
+            std::cout << "[verify]   field over the size limit at offset " << r.tamperOffset
+                      << " — foreign or stale file\n";
+            break;
         case persistence::RecoveryStatus::Tampered:
             std::cout << "[verify]   TAMPERING DETECTED at offset " << r.tamperOffset
                       << " (after " << r.entriesVerified << " valid entries)  [FAIL]\n";

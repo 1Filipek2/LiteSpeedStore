@@ -80,8 +80,9 @@ LiteSpeedStore - tamper-evidence demo
 The GIF is reproducible with [`vhs`](https://github.com/charmbracelet/vhs): `vhs assets/demo.tape`.
 
 `litespeed-verify <wal>` runs the same read-only check as a standalone tool
-(exit code `0` = intact, `1` = tampering, `2` = error) — the kind an agent runs
-against its journal, or a remote service against an uploaded copy.
+(exit code `0` = intact, `1` = tampering, `2` = error — unreadable, foreign, or
+stale file) — the kind an agent runs against its journal, or a remote service
+against an uploaded copy.
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --target litespeed-demo litespeed-verify

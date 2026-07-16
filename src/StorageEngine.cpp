@@ -87,6 +87,12 @@ void StorageEngine::recover() {
             "WAL tampering detected at offset " + std::to_string(result.tamperOffset) +
             " (seq " + std::to_string(result.tamperSeq) + ")");
     }
+    // Not tamper evidence: no append() could have written this — a foreign or stale file.
+    if (result.status == persistence::RecoveryStatus::Malformed) {
+        throw std::runtime_error(
+            "WAL field exceeds the size limit at offset " + std::to_string(result.tamperOffset) +
+            " (seq " + std::to_string(result.tamperSeq) + ") — foreign or stale file");
+    }
 }
 void StorageEngine::appendCapped(const std::string& key, std::string value, double duration, long long timestamp) {
     auto& history = m_data[key];
@@ -97,6 +103,13 @@ void StorageEngine::appendCapped(const std::string& key, std::string value, doub
     history.emplace_back(std::move(value), timestamp, duration);
 }
 void StorageEngine::set(const std::string& key, std::string value, double duration) {
+    // Before the lock and before any write: a rejected set() leaves no partial state.
+    if (key.size() > persistence::WAL::kMaxFieldSize) {
+        throw std::length_error("key exceeds " + std::to_string(persistence::WAL::kMaxFieldSize) + " bytes");
+    }
+    if (value.size() > kMaxFieldSize) {
+        throw std::length_error("value exceeds " + std::to_string(kMaxFieldSize) + " bytes");
+    }
     std::unique_lock<std::shared_mutex> lock(m_mutex);
     auto now = std::chrono::duration_cast<std::chrono::nanoseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();

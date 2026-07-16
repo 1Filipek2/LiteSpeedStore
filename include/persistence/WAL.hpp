@@ -19,14 +19,15 @@ enum class RecordType : uint8_t {
 enum class RecoveryStatus : uint8_t {
     Ok,            ///< The whole chain verified cleanly.
     TruncatedTail, ///< A partial/torn write at the end was discarded (crash recovery).
+    Malformed,     ///< A field exceeds the policy cap: a foreign or stale file, not tamper evidence.
     Tampered       ///< An entry was modified, reordered, or deleted in place.
 };
 
 struct RecoveryResult {
     RecoveryStatus status = RecoveryStatus::Ok;
     uint64_t entriesVerified = 0; ///< Count of entries whose CRC + hash chain verified.
-    uint64_t tamperOffset = 0;    ///< Byte offset of the first bad entry (Tampered only).
-    uint64_t tamperSeq = 0;       ///< Sequence number expected at that point (Tampered only).
+    uint64_t tamperOffset = 0;    ///< Byte offset of the first bad entry (Tampered/Malformed only).
+    uint64_t tamperSeq = 0;       ///< Sequence number expected at that point (Tampered/Malformed only).
     Sha256Digest headHash{};      ///< Chain hash after the last verified entry (the checkpoint anchor).
 };
 
@@ -47,6 +48,9 @@ public:
     /// Size of the on-disk file header: magic(4) + version(4) + flags(8).
     static constexpr size_t kHeaderSize = 16;
 
+    /// Cap on a key or value field, enforced on append and on read (see DECISIONS.md).
+    static constexpr uint32_t kMaxFieldSize = 1u << 20; // 1 MiB
+
     /**
      * @param syncEveryN  fsync() every N appends; 1 = sync on every write.
      * @throws std::runtime_error if the file cannot be opened or has a corrupt header.
@@ -57,7 +61,7 @@ public:
     WAL(const WAL&) = delete;
     WAL& operator=(const WAL&) = delete;
 
-    void append(RecordType type, const std::string& key, const std::string& value, int64_t timestamp); ///< Throws on write or fsync failure.
+    void append(RecordType type, const std::string& key, const std::string& value, int64_t timestamp); ///< Throws std::length_error over kMaxFieldSize; std::runtime_error on I/O failure.
     [[nodiscard]] uint64_t epoch() const;
     void setEpoch(uint64_t epoch); ///< Called after snapshot rotation to fence old entries.
     bool reset();                  ///< Truncates to the header; starts a fresh chain generation.

@@ -152,6 +152,10 @@ void WAL::close() {
     }
 }
 void WAL::append(RecordType type, const std::string& key, const std::string& value, int64_t timestamp) {
+    // The log must never hold a record that recovery would refuse to read back.
+    if (key.size() > kMaxFieldSize || value.size() > kMaxFieldSize) {
+        throw std::length_error("WAL field exceeds " + std::to_string(kMaxFieldSize) + " bytes");
+    }
     std::lock_guard<std::mutex> lock(m_mutex);
     if (m_fd == -1) return;
     const uint64_t ts = static_cast<uint64_t>(timestamp);
@@ -223,10 +227,10 @@ RecoveryResult WAL::walkChain(
     uint64_t expectedSeq = 0;
     bool torn = false;
 
-    // Builds a tamper result anchored at the last entry that verified.
-    auto tampered = [&](off_t pos) {
+    // Builds a failure result anchored at the last entry that verified.
+    auto fail = [&](RecoveryStatus status, off_t pos) {
         RecoveryResult r;
-        r.status = RecoveryStatus::Tampered;
+        r.status = status;
         r.entriesVerified = expectedSeq;
         r.tamperOffset = static_cast<uint64_t>(pos);
         r.tamperSeq = expectedSeq;
@@ -248,12 +252,18 @@ RecoveryResult WAL::walkChain(
         const uint32_t value_len = getLE32(fixed + OFF_VALUE_LEN);
         const uint8_t type_byte  = fixed[OFF_TYPE];
 
-        // An absurd length on a fully-present header is corruption, not a torn
-        // write — flag it rather than silently truncating valid entries after it.
-        constexpr uint32_t MAX_FIELD_SIZE = 1u << 20; // 1 MiB
-        if (key_len > MAX_FIELD_SIZE || value_len > MAX_FIELD_SIZE) {
-            return tampered(current_pos);
+        // Flagged, not truncated: a corrupt length is otherwise indistinguishable
+        // from a torn tail, discarding every valid entry after it (see DECISIONS.md).
+        if (key_len > kMaxFieldSize || value_len > kMaxFieldSize) {
+            return fail(RecoveryStatus::Malformed, current_pos);
         }
+
+        // Measured to EOF, an entry that does not fit was never finished.
+        const uint64_t remaining = static_cast<uint64_t>(st.st_size - current_pos);
+        const uint64_t needed = sizeof(uint32_t) + ENTRY_FIXED_SIZE + HASH_SIZE +
+                                static_cast<uint64_t>(key_len) +
+                                static_cast<uint64_t>(value_len);
+        if (needed > remaining) { torn = true; break; }
 
         std::string key(key_len, '\0');
         if (key_len > 0 && !readExact(m_fd, &key[0], key_len)) { torn = true; break; }
@@ -270,7 +280,7 @@ RecoveryResult WAL::walkChain(
         entry.insert(entry.end(), value.begin(), value.end());
         entry.insert(entry.end(), hash_bytes, hash_bytes + HASH_SIZE);
         if (CRC32::calculate(entry.data(), entry.size()) != stored_crc) {
-            return tampered(current_pos);
+            return fail(RecoveryStatus::Tampered, current_pos);
         }
 
         SHA256 ctx;
@@ -280,10 +290,10 @@ RecoveryResult WAL::walkChain(
         ctx.update(reinterpret_cast<const uint8_t*>(value.data()), value.size());
         const Sha256Digest computed = ctx.digest();
         if (std::memcmp(computed.data(), hash_bytes, HASH_SIZE) != 0) {
-            return tampered(current_pos);
+            return fail(RecoveryStatus::Tampered, current_pos);
         }
         if (seq != expectedSeq) { // a gap means an entry was deleted or reordered
-            return tampered(current_pos);
+            return fail(RecoveryStatus::Tampered, current_pos);
         }
 
         const uint64_t epoch = getLE64(fixed + OFF_EPOCH);
@@ -324,8 +334,9 @@ RecoveryResult WAL::recover(
     std::lock_guard<std::mutex> lock(m_mutex);
     RecoveryResult result = walkChain(visitor, minEpochExclusive, /*allowTruncate=*/true);
     // Adopt the verified chain state so subsequent appends continue the chain.
-    // On tampering we leave the file untouched and do not advance state.
-    if (result.status != RecoveryStatus::Tampered) {
+    // Only a chain that verified end to end may advance it; on failure the file
+    // is left untouched.
+    if (result.status == RecoveryStatus::Ok || result.status == RecoveryStatus::TruncatedTail) {
         m_seq = result.entriesVerified;
         m_headHash = result.headHash;
     }

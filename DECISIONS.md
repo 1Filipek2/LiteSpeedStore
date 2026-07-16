@@ -8,7 +8,7 @@ Add an entry only when there was a real trade-off — this is not a changelog.
 ## 1. Field-size limits are enforced on write and on read
 
 **Date:** 2026-07-16
-**Status:** Accepted — implementation pending
+**Status:** Accepted
 
 **Invariant:** `verify()` must never return `Tampered` for a file the engine itself
 wrote and nothing else modified.
