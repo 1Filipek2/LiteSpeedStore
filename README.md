@@ -1,66 +1,106 @@
-<div align="center">
-
 # LiteSpeedStore
 
-**A fast, crash-safe, tamper-evident journal of events — in modern C++17.**
+A crash-safe key-value store in C++17, built as a tamper-evident journal of events.
 
-[![CI](https://github.com/1Filipek2/LiteSpeedStore/actions/workflows/ci.yml/badge.svg)](https://github.com/1Filipek2/LiteSpeedStore/actions/workflows/ci.yml)
-![C++17](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)
-![CMake](https://img.shields.io/badge/build-CMake-064F8C?logo=cmake&logoColor=white)
-![hardening](https://img.shields.io/badge/hardening-ASan%20%C2%B7%20TSan%20%C2%B7%20libFuzzer%20%C2%B7%20clang--tidy-2ea44f)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+Each key holds an ordered history of values with timestamps and durations. Every write goes
+to a write-ahead log before it reaches memory, and the log is hash-chained: if anyone edits,
+reorders, or deletes an entry after the fact, recovery notices and refuses to load the file.
 
-<img src="assets/demo.gif" alt="Tamper-evidence demo: events are recorded, one byte is flipped, and the verifier catches it at the exact offset" width="760">
+The basic workflow is:
 
-</div>
+1. Write events. Each one is appended to the WAL and added to the in-memory history.
+2. Snapshot when the log grows. State is folded to disk and the log rotates.
+3. Restart (or crash). State is rebuilt from the snapshot, then the WAL is replayed.
+4. Verify whenever you want. `litespeed-verify` walks the chain and reports the first bad byte.
 
-A small, fast, crash-safe in-memory key-value store written in C++17, shaped as a **tamper-evident journal of events**. Each key holds an ordered history of values with timestamps and durations, backed by a Write-Ahead Log and periodic snapshots. The log is hash-chained, so any modification, reordering, or mid-log deletion is cryptographically detectable.
+## Features
 
-## What it demonstrates
+- Hash-chained WAL. Each entry stores `SHA256(previous_hash + entry)` and a sequence number,
+  so any in-place edit, reorder, or deletion is detectable at a byte offset.
+- CRC32 on every entry, so a torn write from a crash can be told apart from tampering.
+- Durable snapshots. `write -> fsync(file) -> rename -> fsync(dir)`, so the old snapshot is
+  never damaged by a failed write and a committed one survives a power loss.
+- Concurrent reads. `std::shared_mutex` lets any number of readers in; writers take the
+  exclusive lock.
+- Group commit. `syncEveryN` controls how often `fsync()` runs, trading durability for
+  throughput.
+- Portable file format. Both files carry a magic + version header, and every integer is
+  written little-endian, so files are recognizable and move between architectures.
+- Scope profiling. The `TRACE_SCOPE` macro records how long a block took, straight into the
+  store.
 
-- **Tamper-evident hash chain** — each WAL entry stores `chain_hash = SHA256(prev_hash ‖ entry)` plus a monotonic `seq`. Recovery verifies the chain and reports the exact offset of any in-place modification, reordering, or deletion; a tampered journal is refused rather than silently loaded. See [THREATMODEL.md](THREATMODEL.md).
-- **Reader-writer concurrency** — `std::shared_mutex` allows unlimited concurrent reads; writes take an exclusive lock. Benchmarked to confirm the expected throughput ratio.
-- **WAL persistence with CRC32** — every entry is checksummed; partial writes at the tail are detected and truncated on recovery, and distinguished from tampering.
-- **Durable atomic snapshots** — `write → fsync(file) → rename → fsync(dir)`: the existing snapshot is never touched if a write fails, and a committed snapshot survives a power loss.
-- **Portable on-disk format** — WAL and snapshot files carry a `magic + version` header and serialize all integers in explicit little-endian, so files are recognizable, versioned, and portable across architectures.
-- **Group-commit** — `syncEveryN` parameter trades per-write durability for throughput; benchmarked to show the trade-off.
-- **Cache-friendly storage** — history stored as `vector<Record>` (value types) rather than `vector<unique_ptr<Record>>` to avoid per-entry heap allocation and improve iteration locality.
-- **RAII profiling** — `TRACE_SCOPE` macro records elapsed time directly into the store without touching production data paths.
-- **Fuzz testing** — libFuzzer harnesses feed random bytes into both the WAL and snapshot parsers under AddressSanitizer + UBSan; run in CI on every push.
-- **CI pipeline** — GitHub Actions: Debug build, AddressSanitizer, ThreadSanitizer, libFuzzer, clang-tidy (enforced), and Doxygen → GitHub Pages.
+## Tech stack
 
-## Architecture
+- **C++17** - no external runtime dependencies
+- **CMake** - build system
+- **Catch2** - unit tests
+- **libFuzzer, ASan, UBSan, TSan** - hardening
+- **clang-tidy** - enforced in CI
+- **Doxygen** - API docs, published to GitHub Pages
 
-A write goes to the WAL (durably) and to the in-memory history; a snapshot
-periodically folds the state to disk and rotates the log.
+## Build
 
-```mermaid
-flowchart LR
-    C(["client"]) -->|"set() / remove()"| E["StorageEngine"]
-    E -->|"append: CRC + SHA-256 chain, then fsync"| W[("litespeed.wal")]
-    E -->|"update history"| M["in-memory map"]
-    E -.->|"snapshot(): durable write + WAL rotation"| S[("litespeed.snap")]
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
 ```
 
-On startup the state is rebuilt from the snapshot, then the WAL is replayed —
-verifying the hash chain. A torn tail from a crash is truncated; tampering is refused.
+Sanitizer builds:
 
-```mermaid
-flowchart TD
-    S[("litespeed.snap")] -->|"1. restore full state"| E["StorageEngine"]
-    W[("litespeed.wal")] -->|"2. replay entries with epoch > snapshot<br/>3. verify hash chain"| E
-    E -->|"chain OK"| OK(["serve reads / writes"])
-    E -->|"tampering detected"| FAIL(["throw — refuse to load"])
+```bash
+# AddressSanitizer + UBSan
+cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug -DSANITIZE_ADDRESS=ON
+cmake --build build-asan --parallel
+
+# ThreadSanitizer
+cmake -S . -B build-tsan -DCMAKE_BUILD_TYPE=Debug -DSANITIZE_THREAD=ON
+cmake --build build-tsan --parallel
 ```
 
-## Demo — tamper evidence in action
+## Usage
 
-`litespeed-demo` records a few endpoint events, verifies the chain, flips a
-single byte, then re-verifies — the change is caught at the exact offset (this
-is the animation at the top of the README):
+```cpp
+#include "StorageEngine.hpp"
 
-<details>
-<summary>Sample output (text)</summary>
+// Opens (or creates) litespeed.wal and recovers any existing state.
+StorageEngine db("litespeed.wal");
+
+db.set("checkout", "142 ms", 142.0);
+db.set("checkout", "138 ms", 138.0);
+
+db.get("checkout");          // -> "138 ms"  (most recent value)
+db.getAverage("checkout");   // -> 140.0     (mean over the history)
+db.historyCount("checkout"); // -> 2
+
+db.snapshot();               // fold state to disk, rotate the log
+```
+
+The constructor takes two more optional arguments: a per-key history cap (`0` = unlimited)
+and `syncEveryN`. There is also `StorageEngine::makeInMemory()`, which skips the WAL
+entirely - useful for profiling and metrics.
+
+Timing a block of code writes the elapsed time into the store under a name:
+
+```cpp
+StorageEngine metrics = StorageEngine::makeInMemory();
+{
+    TRACE_SCOPE("render", metrics);
+    renderFrame();
+}
+metrics.getAverage("render"); // average ms across every render
+```
+
+## Demo
+
+`litespeed-demo` records a few events, verifies the chain, flips one byte, and verifies
+again:
+
+```bash
+cmake --build build --target litespeed-demo litespeed-verify
+./build/litespeed-demo
+```
+
+![Tamper-evidence demo](assets/demo.gif)
 
 ```text
 LiteSpeedStore - tamper-evidence demo
@@ -69,108 +109,102 @@ LiteSpeedStore - tamper-evidence demo
 [agent]    recorded 3 events to /tmp/litespeed_demo.wal
 [agent]    checkpoint to anchor remotely:  seq=3  head=d04cb4dfd191108f...
 
-[verify]   chain intact — 3 entries verified  [OK]
+[verify]   chain intact - 3 entries verified  [OK]
 
 [attacker] flipped 1 byte at offset 66 (inside event #0's recorded data)
 
 [verify]   TAMPERING DETECTED at offset 16 (after 0 valid entries)  [FAIL]
 ```
-</details>
 
-The GIF is reproducible with [`vhs`](https://github.com/charmbracelet/vhs): `vhs assets/demo.tape`.
+The GIF is regenerated with [vhs](https://github.com/charmbracelet/vhs): `vhs assets/demo.tape`.
 
-`litespeed-verify <wal>` runs the same read-only check as a standalone tool
-(exit code `0` = intact, `1` = tampering, `2` = error — unreadable, foreign, or
-stale file) — the kind an agent runs against its journal, or a remote service
-against an uploaded copy.
+`litespeed-verify` runs the same check as a standalone read-only tool - it never writes to
+the file:
 
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --target litespeed-demo litespeed-verify
-./build/litespeed-demo
+./build/litespeed-verify litespeed.wal
 ```
 
-## Building
+| Exit code | Meaning |
+|---|---|
+| `0` | Chain intact, or a torn tail from a crash |
+| `1` | Tampering detected |
+| `2` | Usage or I/O error - unreadable, foreign, or stale file |
+
+## Tests
 
 ```bash
-# Standard build
-cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
 cmake --build build --parallel
-
-# AddressSanitizer + UBSan
-cmake -B build -DCMAKE_BUILD_TYPE=Debug -DSANITIZE_ADDRESS=ON
-cmake --build build --parallel
-
-# ThreadSanitizer
-cmake -B build -DCMAKE_BUILD_TYPE=Debug -DSANITIZE_THREAD=ON
-cmake --build build --parallel
-
-# libFuzzer (requires clang)
-cmake -B build_fuzz -DCMAKE_BUILD_TYPE=Release -DFUZZ=ON -DCMAKE_CXX_COMPILER=clang++
-cmake --build build_fuzz --target FuzzWAL FuzzSnapshot -j4
-./build_fuzz/FuzzWAL fuzz/corpus -max_total_time=60 -max_len=512
+ctest --test-dir build --output-on-failure
 ```
 
-## Persistence Layer
+The suite covers SHA-256, the WAL (append, recovery, chain verification, crash injection),
+and the storage engine (history, snapshots, concurrency). The demo also runs as a smoke
+test - it has to detect the injected tampering or the build fails.
 
-The engine implements a durable, crash-safe persistence layer using a Write-Ahead Log (WAL), a snapshot file, and CRC-based integrity checks.
+## Fuzzing
 
-### `litespeed.wal` Layout
+Both on-disk parsers have libFuzzer harnesses running under ASan + UBSan, so any crash,
+over-read, or over-allocation fails the run.
 
-The file starts with a fixed 16-byte header, followed by a sequence of entries.
+```bash
+cmake -S . -B build-fuzz -DCMAKE_BUILD_TYPE=Release -DFUZZ=ON -DCMAKE_CXX_COMPILER=clang++
+cmake --build build-fuzz --target FuzzWAL FuzzSnapshot --parallel
+
+./build-fuzz/FuzzWAL      fuzz/corpus          -max_total_time=60 -max_len=512
+./build-fuzz/FuzzSnapshot fuzz/corpus_snapshot -max_total_time=60 -max_len=512
+```
+
+- `fuzz/fuzz_wal.cpp` feeds random bytes through `WAL::recover()`.
+- `fuzz/fuzz_snapshot.cpp` wraps the input in a valid header with a matching CRC, so the
+  bytes reach the length-driven part of `Snapshot::load()`.
+
+CI runs both for 30 seconds on every push.
+
+## File formats
+
 All multi-byte integers are little-endian.
 
-```
-+----------------+----------------+------------------------------------------+
-| Header field   | Size (bytes)   | Description                              |
-+----------------+----------------+------------------------------------------+
-| MAGIC          | 4              | "WSL1" (0x314C5357) — file identifier    |
-| VERSION        | 4              | Format version (currently 2)             |
-| FLAGS          | 8              | Reserved (0); future use, e.g. crypto    |
-+----------------+----------------+------------------------------------------+
-```
+### litespeed.wal
 
-Each entry that follows the header. `CHAIN_HASH = SHA256(prev_hash ‖ SEQ..VALUE)`,
-where `prev_hash` is the previous entry's hash (all-zero for the first entry):
+A fixed 16-byte header, followed by entries:
 
-```
-+----------------+----------------+------------------------------------------+
-| Field          | Size (bytes)   | Description                              |
-+----------------+----------------+------------------------------------------+
-| CRC32          | 4              | Checksum of the entire entry (after CRC) |
-| SEQ            | 8              | Monotonic sequence number (gap = tamper) |
-| TIMESTAMP_LOW  | 4              | Epoch nanoseconds (low 32 bits)          |
-| TIMESTAMP_HIGH | 4              | Epoch nanoseconds (high 32 bits)         |
-| EPOCH          | 8              | Snapshot generation for the entry        |
-| KEY_LEN        | 4              | Length of the key string                 |
-| VALUE_LEN      | 4              | Length of the serialized value blob      |
-| TYPE           | 1              | 1 = PUT, 2 = DELETE                      |
-| KEY            | KEY_LEN        | The raw key data                         |
-| VALUE          | VALUE_LEN      | Serialized [Duration(8) + Value(N)]      |
-| CHAIN_HASH     | 32             | SHA-256 linking this entry to the chain  |
-+----------------+----------------+------------------------------------------+
+```text
+MAGIC       4 bytes    "WSL1" (0x314C5357)
+VERSION     4 bytes    format version (currently 2)
+FLAGS       8 bytes    reserved, currently 0
 ```
 
-#### Hash chain — tamper evidence
+Each entry:
 
-Each entry's `CHAIN_HASH` folds in the previous entry's hash, so every record is
-bound to all records before it. Modifying, reordering, or deleting any entry
-breaks every hash downstream, and recovery reports the exact offset.
-
-```mermaid
-flowchart LR
-    H0["prev = 0…0"] --> E0["entry 0<br/>seq · ts · key · value"]
-    E0 -->|"SHA256(prev ‖ entry)"| C0["chain_hash₀"]
-    C0 --> E1["entry 1"]
-    E1 -->|"SHA256(prev ‖ entry)"| C1["chain_hash₁"]
-    C1 --> E2["entry 2"]
-    E2 -->|"SHA256(prev ‖ entry)"| C2["chain_hash₂"]
+```text
+CRC32            4          checksum of everything after this field
+SEQ              8          monotonic sequence number - a gap means tampering
+TIMESTAMP_LOW    4          epoch nanoseconds, low 32 bits
+TIMESTAMP_HIGH   4          epoch nanoseconds, high 32 bits
+EPOCH            8          snapshot generation this entry belongs to
+KEY_LEN          4          length of the key
+VALUE_LEN        4          length of the serialized value blob
+TYPE             1          1 = PUT, 2 = DELETE
+KEY              KEY_LEN    raw key bytes
+VALUE            VALUE_LEN  duration (8 bytes) followed by the value
+CHAIN_HASH       32         SHA-256 linking this entry to the one before it
 ```
 
-See [THREATMODEL.md](THREATMODEL.md) for the guarantees and their limits.
+`CHAIN_HASH` is `SHA256(previous_hash + SEQ..VALUE)`, where the previous hash is all zeros
+for the first entry. Because each hash folds in the one before it, changing any entry
+breaks every hash after it, and recovery can point at the exact offset where the chain
+first stopped matching.
 
-### `litespeed.snap` Layout
+Keys and values are capped at 1 MiB, enforced both when writing and when reading. See
+[DECISIONS.md](DECISIONS.md) for why the cap lives on both sides, and
+[THREATMODEL.md](THREATMODEL.md) for what the hash chain does and does not protect against.
 
-The snapshot stores the full in-memory state, including history for each key, so `getAverage()` and `historyCount()` stay correct after recovery.
+### litespeed.snap
+
+The snapshot holds the full in-memory state, history included, so `getAverage()` and
+`historyCount()` are still correct after a restart:
 
 ```text
 magic + version + crc32
@@ -181,91 +215,87 @@ key_count
     timestamp + duration + value_len + value
 ```
 
-### Recovery Order
+### Recovery
 
-1. Load `litespeed.snap` if it exists.
-2. Restore the full in-memory state from the snapshot.
-3. Replay only WAL entries with an epoch greater than the snapshot epoch.
-4. If the WAL was compacted, replay is small and startup is faster.
+1. Load `litespeed.snap` if it exists and restore the full state from it.
+2. Replay only the WAL entries with an epoch greater than the snapshot's, verifying the
+   hash chain as it goes.
+3. A partial entry at the end of the file is a torn write from a crash, so it gets
+   truncated.
+4. A broken hash, bad CRC, or sequence gap on a complete entry is tampering. Recovery
+   throws and leaves the file untouched, so the evidence survives.
 
-### Snapshot / Compaction
-
-- `StorageEngine::snapshot()` writes a durable snapshot of the current in-memory state.
-- After the snapshot is committed, the WAL epoch is advanced and the log is truncated for rotation.
-- If the truncation step fails, the snapshot is still valid and recovery still works because old WAL entries are ignored by epoch.
-
-### Running the Tests
-
-```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build --parallel
-ctest --test-dir build --output-on-failure
-```
-
-### Fuzz Testing
-
-Both on-disk parsers are hardened with libFuzzer harnesses under AddressSanitizer + UBSan — any crash, over-read, or over-allocation fails the run:
-
-- `fuzz/fuzz_wal.cpp` feeds random bytes through `WAL::recover()`.
-- `fuzz/fuzz_snapshot.cpp` wraps the input in a valid header (matching CRC) so it reaches `Snapshot::load()`'s length-driven parsing.
-
-```bash
-cmake -B build_fuzz -DCMAKE_BUILD_TYPE=Release -DFUZZ=ON -DCMAKE_CXX_COMPILER=clang++
-cmake --build build_fuzz --target FuzzWAL FuzzSnapshot -j4
-./build_fuzz/FuzzWAL      fuzz/corpus          -max_total_time=60 -max_len=512
-./build_fuzz/FuzzSnapshot fuzz/corpus_snapshot -max_total_time=60 -max_len=512
-```
-
-CI runs both for 30 seconds on every push (see `.github/workflows/ci.yml`, job `fuzz`).
+`snapshot()` writes the new snapshot durably first, then advances the WAL epoch and
+truncates the log. If the truncation fails, nothing is lost: the snapshot is already valid
+and the stale WAL entries are ignored by epoch anyway.
 
 ## Benchmarks
 
-Hand-rolled timing benchmark using `StorageEngine::makeInMemory()` (no WAL, no fsync).  
-Build: `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build --target Benchmark`  
-Run: `./build/Benchmark`
+```bash
+cmake --build build --target Benchmark
+./build/Benchmark
+```
+
+In-memory, no WAL and no fsync (Linux x86-64, `-O3`):
 
 | Scenario | Ops | Time | Throughput |
 |---|---|---|---|
-| `set()` single-thread | 500 000 | 47.4 ms | **10 540 235 ops/s** |
-| `get()` single-thread | 500 000 | 8.5 ms | **58 859 108 ops/s** |
-| `getAverage()` single-thread (100-entry history) | 500 000 | 32.1 ms | **15 571 353 ops/s** |
-| Mixed 4 writers + 4 readers (concurrent) | 1 600 000 | 432.2 ms | **3 702 288 ops/s** |
+| `set()` single-thread | 500 000 | 47.4 ms | 10 540 235 ops/s |
+| `get()` single-thread | 500 000 | 8.5 ms | 58 859 108 ops/s |
+| `getAverage()` single-thread, 100-entry history | 500 000 | 32.1 ms | 15 571 353 ops/s |
+| 4 writers + 4 readers, concurrent | 1 600 000 | 432.2 ms | 3 702 288 ops/s |
 
-*Measured on Linux x86-64, Release build (`-O3`), in-memory store. History stored as `vector<Record>` (value types) for cache-friendly iteration.*
+`get()` comes out 5.6x faster than `set()`, which is the shared mutex doing its job:
+readers run together, writers serialize. Concurrent throughput is lower than
+single-threaded here because four writers are constantly taking the exclusive lock and
+shutting readers out; a read-heavy mix scales much better.
 
-**Key observations:**
+Storing history as `vector<Record>` instead of `vector<unique_ptr<Record>>` was worth
++15.6% on `getAverage()` and +57.2% on concurrent throughput, since it drops the per-record
+heap allocation and keeps a history contiguous in cache.
 
-- `get()` is **5.6× faster** than `set()` — `shared_mutex` correctly allows concurrent reads while serialising only writes.
-- Switching from `vector<unique_ptr<Record>>` to `vector<Record>` improved `getAverage()` by **+15.6%** and concurrent throughput by **+57.2%** — eliminating per-record heap allocations and improving cache locality during history iteration.
-- Concurrent throughput drops vs. single-thread because 4 writers each acquire a `unique_lock`, blocking all readers. This is the expected cost of write-heavy workloads; a read-heavy workload would scale much better.
-
-### WAL-backed: group-commit trade-off
-
-`StorageEngine` accepts a `syncEveryN` parameter controlling how often `fsync()` is called. `syncEveryN=1` is the default — every write is durable. Higher values batch writes, trading durability for throughput.
+With the WAL in front, throughput is dominated by `fsync`:
 
 | Scenario | Ops | Time | Throughput |
 |---|---|---|---|
-| WAL `set()` syncEveryN=1 (max durability) | 276 281 | 500 ms | **552 561 ops/s** |
-| WAL `set()` syncEveryN=16 | 291 549 | 500 ms | **583 096 ops/s** |
-| WAL `set()` syncEveryN=64 | 307 350 | 500 ms | **614 700 ops/s** |
+| `syncEveryN=1` (every write durable) | 276 281 | 500 ms | 552 561 ops/s |
+| `syncEveryN=16` | 291 549 | 500 ms | 583 096 ops/s |
+| `syncEveryN=64` | 307 350 | 500 ms | 614 700 ops/s |
 
-*Measured on NVMe SSD; on HDD the gap is much larger (~100–200 ops/s at syncEveryN=1).*
+Measured on an NVMe SSD. On a spinning disk the gap is far wider, roughly 100-200 ops/s at
+`syncEveryN=1`. Setting `syncEveryN=N` means the last N-1 writes can be lost on a power
+cut, which is the trade you are making on purpose.
 
-`syncEveryN=1` guarantees each write survives a crash. `syncEveryN=N` risks losing the last N−1 writes on power failure — a deliberate durability trade-off, not a bug.
+The SHA-256 chain barely shows up in these numbers. At `syncEveryN=1` the path is
+fsync-bound, so tamper evidence is close to free; batching amortizes the fsync and lets
+throughput climb, with hashing still only a small slice of the per-write cost.
 
-The per-entry SHA-256 hash chain is cheap relative to `fsync`: at `syncEveryN=1` the durable path is fsync-bound, so tamper-evidence costs almost nothing; batching (higher `syncEveryN`) amortizes the fsync and lets throughput rise, with the hashing only a small fraction of per-write cost. (The in-memory figures above take no WAL path and are unaffected.)
+## Project structure
 
-## API Documentation
+```text
+include/     public headers (StorageEngine, FastTrace, persistence/)
+src/         implementation
+tests/       Catch2 unit tests
+fuzz/        libFuzzer harnesses and seed corpora
+benchmark/   timing benchmark
+tools/       litespeed-verify and litespeed-demo
+assets/      demo GIF and its vhs tape
+```
 
-All public headers are documented with Doxygen. CI generates and deploys the docs to GitHub Pages on every push to `main`.
+## Docs
 
-To generate locally:
+Every public header is documented with Doxygen, and CI publishes the docs to GitHub Pages
+on each push to `main`. To build them locally:
 
 ```bash
 doxygen Doxyfile
 open docs/html/index.html
 ```
 
+`DECISIONS.md` records design choices the code cannot express on its own, along with the
+alternatives that were rejected. `THREATMODEL.md` states who the tamper evidence defends
+against and where its guarantees stop.
+
 ## License
 
-Released under the [MIT License](LICENSE).
+[MIT](LICENSE)
