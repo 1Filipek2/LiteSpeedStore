@@ -1,0 +1,25 @@
+# Code style, matching the fim-lite / cpp-log-analyzer layout:
+# Allman braces, 4-space indent, braces around every control-flow body.
+Language: Cpp
+BasedOnStyle: LLVM
+
+BreakBeforeBraces: Allman
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 120
+
+AccessModifierOffset: -4
+NamespaceIndentation: None
+IndentCaseLabels: true
+PointerAlignment: Left
+InsertBraces: true
+AllowShortFunctionsOnASingleLine: Empty
+
+# Include order is hand-curated; do not reshuffle it.
+SortIncludes: Never
+
+# Keep the return type on the same line as the function name.
+PenaltyReturnTypeOnItsOwnLine: 1000
+# Macro line-continuation backslashes sit next to the code, not at column 120.
+AlignEscapedNewlines: Left

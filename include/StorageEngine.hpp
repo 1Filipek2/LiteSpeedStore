@@ -10,17 +10,18 @@
 #include <utility>
 #include "persistence/WAL.hpp"
 
-struct Record {
+struct Record
+{
     std::string value;
     double duration;     ///< Milliseconds.
     long long timestamp; ///< Nanoseconds since Unix epoch.
 
-    Record(std::string v, long long ts, double d)
-        : value(std::move(v)), duration(d), timestamp(ts) {}
+    Record(std::string v, long long ts, double d) : value(std::move(v)), duration(d), timestamp(ts) {}
 };
 
 /** Thread-safe key-value store. Reads use shared_lock; writes use unique_lock. */
-class StorageEngine {
+class StorageEngine
+{
 public:
     static constexpr size_t kUnlimitedHistory = 0; ///< 0 = no cap.
 
@@ -31,8 +32,7 @@ public:
      * @param syncEveryN  fsync() every N appends. 1 = every write is durable;
      *                    higher values trade durability for throughput.
      */
-    explicit StorageEngine(const std::string& dbPath = "litespeed.wal",
-                           size_t maxHistoryPerKey = kUnlimitedHistory,
+    explicit StorageEngine(const std::string& dbPath = "litespeed.wal", size_t maxHistoryPerKey = kUnlimitedHistory,
                            size_t syncEveryN = 1);
 
     /** No WAL, no persistence — suitable for profiling/metrics use. */
@@ -52,7 +52,9 @@ public:
     void recover();
 
 private:
-    struct InMemoryTag {};
+    struct InMemoryTag
+    {
+    };
     StorageEngine(InMemoryTag, size_t maxHistoryPerKey);
 
     /// Appends to a key's history, evicting the oldest past the cap. Caller must

@@ -3,21 +3,24 @@
 #include <thread>
 #include <iostream>
 
-void heavyOperation(StorageEngine& db) {
+void heavyOperation(StorageEngine& db)
+{
     TRACE_SCOPE("HeavyOperation", db);
-    
-    std::this_thread::sleep_for(std::chrono::milliseconds(50)); //workload sim
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(50)); // workload sim
 }
 
-int main() {
+int main()
+{
     StorageEngine metrics = StorageEngine::makeInMemory();
 
     std::cout << "Starting application with FastTrace..." << '\n';
 
     {
         TRACE_SCOPE("TotalMainRuntime", metrics);
-        
-        for(int i = 0; i < 5; ++i) {
+
+        for (int i = 0; i < 5; ++i)
+        {
             heavyOperation(metrics);
         }
     }

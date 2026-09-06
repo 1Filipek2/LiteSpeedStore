@@ -14,7 +14,8 @@
 
 using namespace test;
 
-TEST_CASE("WAL recovery: garbage appended at end is truncated gracefully", "[wal][corruption]") {
+TEST_CASE("WAL recovery: garbage appended at end is truncated gracefully", "[wal][corruption]")
+{
     cleanup();
 
     // Write one clean entry, then close the engine
@@ -27,8 +28,7 @@ TEST_CASE("WAL recovery: garbage appended at end is truncated gracefully", "[wal
     {
         std::ofstream f(WAL_PATH, std::ios::binary | std::ios::app);
         REQUIRE(f.is_open());
-        const std::array<char, 8> garbage{0x01, 0x02, char(0xFF), char(0xFE),
-                                          char(0xAB), char(0xCD), 0x00, 0x11};
+        const std::array<char, 8> garbage{0x01, 0x02, char(0xFF), char(0xFE), char(0xAB), char(0xCD), 0x00, 0x11};
         f.write(garbage.data(), static_cast<std::streamsize>(garbage.size()));
     }
 
@@ -42,7 +42,8 @@ TEST_CASE("WAL recovery: garbage appended at end is truncated gracefully", "[wal
     cleanup();
 }
 
-TEST_CASE("Hash chain: a clean log verifies and exposes a checkpoint", "[tamper]") {
+TEST_CASE("Hash chain: a clean log verifies and exposes a checkpoint", "[tamper]")
+{
     cleanup();
 
     {
@@ -52,20 +53,27 @@ TEST_CASE("Hash chain: a clean log verifies and exposes a checkpoint", "[tamper]
     }
 
     persistence::WAL wal(WAL_PATH);
-    const persistence::RecoveryResult result = wal.recover(
-        [](persistence::RecordType, const std::string&, const std::string&, int64_t) {});
+    const persistence::RecoveryResult result =
+        wal.recover([](persistence::RecordType, const std::string&, const std::string&, int64_t) {});
     REQUIRE(result.status == persistence::RecoveryStatus::Ok);
 
     const persistence::Checkpoint cp = wal.head();
     REQUIRE(cp.seq == 2); // two entries chained
     bool headIsNonZero = false;
-    for (uint8_t b : cp.head) if (b != 0) headIsNonZero = true;
+    for (uint8_t b : cp.head)
+    {
+        if (b != 0)
+        {
+            headIsNonZero = true;
+        }
+    }
     REQUIRE(headIsNonZero);
 
     cleanup();
 }
 
-TEST_CASE("Tamper evidence: flipping one byte mid-log is detected", "[tamper]") {
+TEST_CASE("Tamper evidence: flipping one byte mid-log is detected", "[tamper]")
+{
     cleanup();
 
     {
@@ -101,7 +109,8 @@ TEST_CASE("Tamper evidence: flipping one byte mid-log is detected", "[tamper]") 
     cleanup();
 }
 
-TEST_CASE("Tamper evidence: deleting a middle entry breaks the chain", "[tamper]") {
+TEST_CASE("Tamper evidence: deleting a middle entry breaks the chain", "[tamper]")
+{
     cleanup();
 
     // Three records with identical key/value sizes => three equal-length entries.
@@ -120,11 +129,8 @@ TEST_CASE("Tamper evidence: deleting a middle entry breaks the chain", "[tamper]
     // Splice out the middle entry, leaving a structurally valid file whose chain
     // and seq no longer line up.
     std::vector<char> spliced;
-    spliced.insert(spliced.end(), bytes.begin(),
-                   bytes.begin() + static_cast<std::ptrdiff_t>(header + entrySize));
-    spliced.insert(spliced.end(),
-                   bytes.begin() + static_cast<std::ptrdiff_t>(header + 2 * entrySize),
-                   bytes.end());
+    spliced.insert(spliced.end(), bytes.begin(), bytes.begin() + static_cast<std::ptrdiff_t>(header + entrySize));
+    spliced.insert(spliced.end(), bytes.begin() + static_cast<std::ptrdiff_t>(header + 2 * entrySize), bytes.end());
     writeAll(WAL_PATH, spliced);
 
     persistence::WAL wal(WAL_PATH);
@@ -134,7 +140,8 @@ TEST_CASE("Tamper evidence: deleting a middle entry breaks the chain", "[tamper]
     cleanup();
 }
 
-TEST_CASE("Field size: a corrupt mid-log length is reported, not truncated away", "[wal][corruption]") {
+TEST_CASE("Field size: a corrupt mid-log length is reported, not truncated away", "[wal][corruption]")
+{
     cleanup();
 
     {
@@ -152,7 +159,10 @@ TEST_CASE("Field size: a corrupt mid-log length is reported, not truncated away"
     auto it = std::search(bytes.begin(), bytes.end(), needle.begin(), needle.end());
     REQUIRE(it != bytes.end());
     const size_t valueLenPos = static_cast<size_t>(it - bytes.begin()) - 5;
-    for (size_t i = 0; i < 4; ++i) bytes[valueLenPos + i] = char(0xFF);
+    for (size_t i = 0; i < 4; ++i)
+    {
+        bytes[valueLenPos + i] = char(0xFF);
+    }
     writeAll(WAL_PATH, bytes);
 
     {
@@ -169,7 +179,8 @@ TEST_CASE("Field size: a corrupt mid-log length is reported, not truncated away"
     cleanup();
 }
 
-TEST_CASE("Crash injection: a half-written tail entry is discarded on recovery", "[crash]") {
+TEST_CASE("Crash injection: a half-written tail entry is discarded on recovery", "[crash]")
+{
     cleanup();
 
     {
@@ -187,7 +198,7 @@ TEST_CASE("Crash injection: a half-written tail entry is discarded on recovery",
 
     {
         StorageEngine db(WAL_PATH);
-        REQUIRE(db.historyCount("k") == 2);       // torn tail dropped, prefix kept
+        REQUIRE(db.historyCount("k") == 2); // torn tail dropped, prefix kept
         REQUIRE(db.get("k").value() == "v2");
     }
 

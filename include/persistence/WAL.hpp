@@ -8,22 +8,26 @@
 
 #include "persistence/SHA256.hpp"
 
-namespace persistence {
+namespace persistence
+{
 
-enum class RecordType : uint8_t {
-    PUT    = 1,
+enum class RecordType : uint8_t
+{
+    PUT = 1,
     DELETE = 2
 };
 
 /// Outcome of walking the log chain during recovery or verification.
-enum class RecoveryStatus : uint8_t {
+enum class RecoveryStatus : uint8_t
+{
     Ok,            ///< The whole chain verified cleanly.
     TruncatedTail, ///< A partial/torn write at the end was discarded (crash recovery).
     Malformed,     ///< A field exceeds the policy cap: a foreign or stale file, not tamper evidence.
     Tampered       ///< An entry was modified, reordered, or deleted in place.
 };
 
-struct RecoveryResult {
+struct RecoveryResult
+{
     RecoveryStatus status = RecoveryStatus::Ok;
     uint64_t entriesVerified = 0; ///< Count of entries whose CRC + hash chain verified.
     uint64_t tamperOffset = 0;    ///< Byte offset of the first bad entry (Tampered/Malformed only).
@@ -33,7 +37,8 @@ struct RecoveryResult {
 
 /// A tamper-evidence anchor: the chain head an agent would ship to a trusted
 /// remote so that later truncation of the local log becomes detectable.
-struct Checkpoint {
+struct Checkpoint
+{
     uint64_t seq = 0;    ///< Entries written so far in the current generation.
     Sha256Digest head{}; ///< Chain hash of the last entry (all-zero when empty).
 };
@@ -43,7 +48,8 @@ struct Checkpoint {
  * Entry layout: CRC32 | seq | timestamp | epoch | key_len | value_len | type |
  * key | value | chain_hash, where chain_hash = SHA256(prev_hash | seq..value).
  */
-class WAL {
+class WAL
+{
 public:
     /// Size of the on-disk file header: magic(4) + version(4) + flags(8).
     static constexpr size_t kHeaderSize = 16;
@@ -61,7 +67,8 @@ public:
     WAL(const WAL&) = delete;
     WAL& operator=(const WAL&) = delete;
 
-    void append(RecordType type, const std::string& key, const std::string& value, int64_t timestamp); ///< Throws std::length_error over kMaxFieldSize; std::runtime_error on I/O failure.
+    void append(RecordType type, const std::string& key, const std::string& value,
+                int64_t timestamp); ///< Throws std::length_error over kMaxFieldSize; std::runtime_error on I/O failure.
     [[nodiscard]] uint64_t epoch() const;
     void setEpoch(uint64_t epoch); ///< Called after snapshot rotation to fence old entries.
     bool reset();                  ///< Truncates to the header; starts a fresh chain generation.
@@ -75,8 +82,7 @@ public:
      */
     RecoveryResult recover(
         const std::function<void(RecordType, const std::string&, const std::string&, int64_t)>& visitor,
-        std::optional<uint64_t> minEpochExclusive = std::nullopt
-    );
+        std::optional<uint64_t> minEpochExclusive = std::nullopt);
 
     /// Read-only chain verification — never mutates the file. For a verifier tool.
     [[nodiscard]] RecoveryResult verify();
@@ -91,14 +97,13 @@ private:
     /// seq monotonicity. @p allowTruncate discards a torn tail in-place.
     RecoveryResult walkChain(
         const std::function<void(RecordType, const std::string&, const std::string&, int64_t)>& visitor,
-        std::optional<uint64_t> minEpochExclusive,
-        bool allowTruncate);
+        std::optional<uint64_t> minEpochExclusive, bool allowTruncate);
 
     std::string m_path;
     int m_fd = -1;
     uint64_t m_epoch = 0;
-    uint64_t m_seq = 0;          ///< Next sequence number to assign.
-    Sha256Digest m_headHash{};   ///< Chain hash of the last appended entry.
+    uint64_t m_seq = 0;        ///< Next sequence number to assign.
+    Sha256Digest m_headHash{}; ///< Chain hash of the last appended entry.
     size_t m_syncEveryN = 1;
     size_t m_pendingWrites = 0;
     mutable std::mutex m_mutex;

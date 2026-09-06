@@ -14,7 +14,8 @@
 
 using namespace test;
 
-TEST_CASE("Persistence lifecycle: snapshot, WAL rotation, and recovery", "[persistence]") {
+TEST_CASE("Persistence lifecycle: snapshot, WAL rotation, and recovery", "[persistence]")
+{
     cleanup();
 
     // Phase 1: write data, take snapshot, verify WAL is rotated
@@ -55,44 +56,55 @@ TEST_CASE("Persistence lifecycle: snapshot, WAL rotation, and recovery", "[persi
     cleanup();
 }
 
-TEST_CASE("Thread safety: concurrent reads and writes do not crash or corrupt", "[concurrency]") {
+TEST_CASE("Thread safety: concurrent reads and writes do not crash or corrupt", "[concurrency]")
+{
     cleanup();
 
     StorageEngine db(WAL_PATH);
 
-    constexpr int NUM_WRITERS  = 4;
-    constexpr int NUM_READERS  = 4;
+    constexpr int NUM_WRITERS = 4;
+    constexpr int NUM_READERS = 4;
     constexpr int OPS_PER_THREAD = 50;
 
     std::vector<std::thread> threads;
 
-    for (int i = 0; i < NUM_WRITERS; ++i) {
-        threads.emplace_back([&db, i]() {
-            for (int j = 0; j < OPS_PER_THREAD; ++j) {
-                db.set("key" + std::to_string(i),
-                       "val" + std::to_string(j),
-                       static_cast<double>(j));
-            }
-        });
+    for (int i = 0; i < NUM_WRITERS; ++i)
+    {
+        threads.emplace_back(
+            [&db, i]()
+            {
+                for (int j = 0; j < OPS_PER_THREAD; ++j)
+                {
+                    db.set("key" + std::to_string(i), "val" + std::to_string(j), static_cast<double>(j));
+                }
+            });
     }
 
-    for (int i = 0; i < NUM_READERS; ++i) {
-        threads.emplace_back([&db, i]() {
-            for (int j = 0; j < OPS_PER_THREAD; ++j) {
-                db.get("key" + std::to_string(i % NUM_WRITERS));
-                db.count();
-            }
-        });
+    for (int i = 0; i < NUM_READERS; ++i)
+    {
+        threads.emplace_back(
+            [&db, i]()
+            {
+                for (int j = 0; j < OPS_PER_THREAD; ++j)
+                {
+                    db.get("key" + std::to_string(i % NUM_WRITERS));
+                    db.count();
+                }
+            });
     }
 
-    for (auto& t : threads) t.join();
+    for (auto& t : threads)
+    {
+        t.join();
+    }
 
     REQUIRE(db.count() == NUM_WRITERS);
 
     cleanup();
 }
 
-TEST_CASE("History cap: oldest record is evicted when limit is reached", "[history]") {
+TEST_CASE("History cap: oldest record is evicted when limit is reached", "[history]")
+{
     cleanup();
 
     StorageEngine db(WAL_PATH, 3);
@@ -110,13 +122,15 @@ TEST_CASE("History cap: oldest record is evicted when limit is reached", "[histo
     cleanup();
 }
 
-TEST_CASE("History cap is enforced during WAL replay after restart", "[history][persistence]") {
+TEST_CASE("History cap is enforced during WAL replay after restart", "[history][persistence]")
+{
     cleanup();
 
     // Write 6 records under a cap of 3, with no snapshot — everything is in the WAL.
     {
         StorageEngine db(WAL_PATH, 3);
-        for (int i = 0; i < 6; ++i) {
+        for (int i = 0; i < 6; ++i)
+        {
             db.set("key", "val" + std::to_string(i), static_cast<double>(i));
         }
         REQUIRE(db.historyCount("key") == 3);
@@ -135,14 +149,15 @@ TEST_CASE("History cap is enforced during WAL replay after restart", "[history][
     cleanup();
 }
 
-TEST_CASE("Crash injection: a stale snapshot .tmp is ignored", "[crash]") {
+TEST_CASE("Crash injection: a stale snapshot .tmp is ignored", "[crash]")
+{
     cleanup();
 
     {
         StorageEngine db(WAL_PATH);
         db.set("k", "v1", 1.0);
-        db.snapshot();           // a good snapshot is committed
-        db.set("k", "v2", 2.0);  // and one more entry lands in the rotated WAL
+        db.snapshot();          // a good snapshot is committed
+        db.set("k", "v2", 2.0); // and one more entry lands in the rotated WAL
     }
 
     // Simulate a crash during the next snapshot, before the atomic rename:
@@ -154,7 +169,7 @@ TEST_CASE("Crash injection: a stale snapshot .tmp is ignored", "[crash]") {
 
     {
         StorageEngine db(WAL_PATH);
-        REQUIRE(db.get("k").value() == "v2");   // loads the good .snap, replays the WAL
+        REQUIRE(db.get("k").value() == "v2"); // loads the good .snap, replays the WAL
         REQUIRE(db.historyCount("k") == 2);
     }
     REQUIRE(std::filesystem::exists(SNAP_PATH + ".tmp")); // engine never consumes the .tmp
@@ -162,7 +177,8 @@ TEST_CASE("Crash injection: a stale snapshot .tmp is ignored", "[crash]") {
     cleanup();
 }
 
-TEST_CASE("Field size: an oversize value is rejected by set(), not at recovery", "[field_size][persistence]") {
+TEST_CASE("Field size: an oversize value is rejected by set(), not at recovery", "[field_size][persistence]")
+{
     cleanup();
 
     {
@@ -191,7 +207,8 @@ TEST_CASE("Field size: an oversize value is rejected by set(), not at recovery",
     cleanup();
 }
 
-TEST_CASE("Field size: values around the limit round-trip and verify clean", "[field_size][persistence]") {
+TEST_CASE("Field size: values around the limit round-trip and verify clean", "[field_size][persistence]")
+{
     cleanup();
 
     const size_t limit = StorageEngine::kMaxFieldSize;
@@ -199,7 +216,8 @@ TEST_CASE("Field size: values around the limit round-trip and verify clean", "[f
 
     {
         StorageEngine db(WAL_PATH);
-        for (size_t n : sizes) {
+        for (size_t n : sizes)
+        {
             db.set("k" + std::to_string(n), std::string(n, 'x'), 1.0);
         }
     }
@@ -209,7 +227,8 @@ TEST_CASE("Field size: values around the limit round-trip and verify clean", "[f
     }
     {
         StorageEngine db(WAL_PATH);
-        for (size_t n : sizes) {
+        for (size_t n : sizes)
+        {
             REQUIRE(db.get("k" + std::to_string(n)).value().size() == n);
         }
     }
