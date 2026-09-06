@@ -6,7 +6,7 @@
 #include <iostream>
 #include <string>
 
-// Read-only integrity check for a LiteSpeed WAL file — the "verifier" an agent
+// Read-only integrity check for a LiteSpeed WAL file - the "verifier" an agent
 // would run (or a remote service) to confirm a journal has not been tampered with.
 // Exit codes: 0 = intact / torn tail, 1 = tampering detected, 2 = usage or I/O error.
 
@@ -46,7 +46,7 @@ int main(int argc, char** argv)
         switch (r.status)
         {
             case persistence::RecoveryStatus::Ok:
-                std::cout << "OK    chain intact — " << r.entriesVerified << " entries verified\n"
+                std::cout << "OK    chain intact - " << r.entriesVerified << " entries verified\n"
                           << "      head: " << toHex(r.headHash) << "\n";
                 return 0;
             case persistence::RecoveryStatus::TruncatedTail:

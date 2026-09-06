@@ -114,7 +114,7 @@ TEST_CASE("History cap: oldest record is evicted when limit is reached", "[histo
     db.set("key", "val3", 3.0);
     REQUIRE(db.historyCount("key") == 3);
 
-    // 4th write evicts the oldest — count stays at 3
+    // 4th write evicts the oldest - count stays at 3
     db.set("key", "val4", 4.0);
     REQUIRE(db.historyCount("key") == 3);
     REQUIRE(db.get("key").value() == "val4");
@@ -126,7 +126,7 @@ TEST_CASE("History cap is enforced during WAL replay after restart", "[history][
 {
     cleanup();
 
-    // Write 6 records under a cap of 3, with no snapshot — everything is in the WAL.
+    // Write 6 records under a cap of 3, with no snapshot - everything is in the WAL.
     {
         StorageEngine db(WAL_PATH, 3);
         for (int i = 0; i < 6; ++i)

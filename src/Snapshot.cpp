@@ -100,7 +100,7 @@ bool readLE64(const std::vector<uint8_t>& buf, size_t& offset, uint64_t& value)
 bool Snapshot::save(const std::string& path, const SnapshotImage& image)
 {
     // serialize all data into a payload buffer first so we can compute the CRC
-    // before writing the file — avoids re-opening the file to patch in the checksum.
+    // before writing the file - avoids re-opening the file to patch in the checksum.
     std::vector<uint8_t> payload;
     putLE64(payload, image.epoch);
 
@@ -135,7 +135,7 @@ bool Snapshot::save(const std::string& path, const SnapshotImage& image)
     putLE32(fileBuf, crc);
     fileBuf.insert(fileBuf.end(), payload.begin(), payload.end());
 
-    // write tmp → fsync(file) → rename → fsync(dir): the rename is atomic so the
+    // write tmp -> fsync(file) -> rename -> fsync(dir): the rename is atomic so the
     // old snapshot survives a crash, and the fsyncs make a committed one survive power loss.
     const std::string tmpPath = path + ".tmp";
     int fd = ::open(tmpPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
@@ -211,7 +211,7 @@ bool Snapshot::load(const std::string& path, SnapshotImage& image)
     {
         return false;
     }
-    // a key entry needs at least MIN_KEY_BYTES on disk — reject impossible counts.
+    // a key entry needs at least MIN_KEY_BYTES on disk - reject impossible counts.
     if (keyCount > (payload.size() - offset) / MIN_KEY_BYTES)
     {
         return false;
@@ -239,7 +239,7 @@ bool Snapshot::load(const std::string& path, SnapshotImage& image)
         {
             return false;
         }
-        // each record needs at least MIN_RECORD_BYTES — reject impossible counts
+        // each record needs at least MIN_RECORD_BYTES - reject impossible counts
         // before reserve() so a corrupt count can't trigger a huge allocation.
         if (recordCount > (payload.size() - offset) / MIN_RECORD_BYTES)
         {

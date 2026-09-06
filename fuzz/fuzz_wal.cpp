@@ -7,7 +7,7 @@
 
 // libFuzzer entry point.
 // Writes arbitrary bytes to a temp WAL file, then calls recover().
-// Invariant: recover() must never crash, abort, or leak — regardless of input.
+// Invariant: recover() must never crash, abort, or leak - regardless of input.
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     // Unique path per process so parallel fuzzing instances don't collide.

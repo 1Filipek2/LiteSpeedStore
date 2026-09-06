@@ -32,14 +32,14 @@ void printVerify(const persistence::RecoveryResult& r)
     switch (r.status)
     {
         case persistence::RecoveryStatus::Ok:
-            std::cout << "[verify]   chain intact — " << r.entriesVerified << " entries verified  [OK]\n";
+            std::cout << "[verify]   chain intact - " << r.entriesVerified << " entries verified  [OK]\n";
             break;
         case persistence::RecoveryStatus::TruncatedTail:
             std::cout << "[verify]   torn tail after " << r.entriesVerified << " entries\n";
             break;
         case persistence::RecoveryStatus::Malformed:
             std::cout << "[verify]   field over the size limit at offset " << r.tamperOffset
-                      << " — foreign or stale file\n";
+                      << " - foreign or stale file\n";
             break;
         case persistence::RecoveryStatus::Tampered:
             std::cout << "[verify]   TAMPERING DETECTED at offset " << r.tamperOffset << " (after " << r.entriesVerified
@@ -70,7 +70,7 @@ int main()
                   << "...\n\n";
     }
 
-    // 2. The verifier checks the chain — all good.
+    // 2. The verifier checks the chain - all good.
     {
         persistence::WAL wal(kDemoWal);
         printVerify(wal.verify());
@@ -97,7 +97,7 @@ int main()
         }
     }
 
-    // 4. The verifier runs again — the chain no longer matches.
+    // 4. The verifier runs again - the chain no longer matches.
     {
         persistence::WAL wal(kDemoWal);
         printVerify(wal.verify());

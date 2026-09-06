@@ -35,7 +35,7 @@ public:
     explicit StorageEngine(const std::string& dbPath = "litespeed.wal", size_t maxHistoryPerKey = kUnlimitedHistory,
                            size_t syncEveryN = 1);
 
-    /** No WAL, no persistence — suitable for profiling/metrics use. */
+    /** No WAL, no persistence - suitable for profiling/metrics use. */
     static StorageEngine makeInMemory(size_t maxHistoryPerKey = kUnlimitedHistory);
 
     StorageEngine(const StorageEngine&) = delete;

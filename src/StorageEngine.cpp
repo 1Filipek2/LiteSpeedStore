@@ -99,18 +99,18 @@ void StorageEngine::recover()
             }
         },
         m_snapshotEpoch);
-    // A tampered journal is refused outright — a security log that silently loads
+    // A tampered journal is refused outright - a security log that silently loads
     // forged data is worse than one that fails loudly.
     if (result.status == persistence::RecoveryStatus::Tampered)
     {
         throw std::runtime_error("WAL tampering detected at offset " + std::to_string(result.tamperOffset) + " (seq " +
                                  std::to_string(result.tamperSeq) + ")");
     }
-    // Not tamper evidence: no append() could have written this — a foreign or stale file.
+    // Not tamper evidence: no append() could have written this - a foreign or stale file.
     if (result.status == persistence::RecoveryStatus::Malformed)
     {
         throw std::runtime_error("WAL field exceeds the size limit at offset " + std::to_string(result.tamperOffset) +
-                                 " (seq " + std::to_string(result.tamperSeq) + ") — foreign or stale file");
+                                 " (seq " + std::to_string(result.tamperSeq) + ") - foreign or stale file");
     }
 }
 void StorageEngine::appendCapped(const std::string& key, std::string value, double duration, long long timestamp)

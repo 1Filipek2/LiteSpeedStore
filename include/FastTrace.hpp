@@ -5,7 +5,7 @@
 #include <functional>
 #include <utility>
 
-/** RAII timer — fires callback(elapsed_ms) on destruction. */
+/** RAII timer - fires callback(elapsed_ms) on destruction. */
 class Timer
 {
 public:

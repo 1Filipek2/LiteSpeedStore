@@ -15,7 +15,7 @@ The basic workflow is:
 
 ## Features
 
-- Hash-chained WAL. Each entry stores `SHA256(previous_hash + entry)` and a sequence number,
+- Hash-chained WAL. Each entry stores `SHA256(previous_hash | entry)` and a sequence number,
   so any in-place edit, reorder, or deletion is detectable at a byte offset.
 - CRC32 on every entry, so a torn write from a crash can be told apart from tampering.
 - Durable snapshots. `write -> fsync(file) -> rename -> fsync(dir)`, so the old snapshot is
@@ -192,7 +192,7 @@ VALUE            VALUE_LEN  duration (8 bytes) followed by the value
 CHAIN_HASH       32         SHA-256 linking this entry to the one before it
 ```
 
-`CHAIN_HASH` is `SHA256(previous_hash + SEQ..VALUE)`, where the previous hash is all zeros
+`CHAIN_HASH` is `SHA256(previous_hash | SEQ..VALUE)`, where the previous hash is all zeros
 for the first entry. Because each hash folds in the one before it, changing any entry
 breaks every hash after it, and recovery can point at the exact offset where the chain
 first stopped matching.

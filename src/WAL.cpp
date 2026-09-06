@@ -123,7 +123,7 @@ bool WAL::writeHeader()
     std::vector<uint8_t> header;
     putLE32(header, WAL_MAGIC);
     putLE32(header, WAL_VERSION);
-    putLE64(header, uint64_t{0}); // flags — reserved for future use (e.g. encryption)
+    putLE64(header, uint64_t{0}); // flags - reserved for future use (e.g. encryption)
     if (!writeExact(m_fd, header.data(), header.size()))
     {
         return false;
@@ -316,7 +316,7 @@ RecoveryResult WAL::walkChain(
 
     while (current_pos < st.st_size)
     {
-        // A short read here means the writer was interrupted mid-entry — a torn
+        // A short read here means the writer was interrupted mid-entry - a torn
         // tail from a crash, which is legitimately discarded.
         uint8_t crc_bytes[sizeof(uint32_t)];
         if (!readExact(m_fd, crc_bytes, sizeof(crc_bytes)))

@@ -124,7 +124,7 @@ int main()
     std::cout << std::string(80, '-') << '\n';
 
     // 5. WAL-backed set(): group-commit trade-off (time-capped, 500ms per run)
-    std::cout << "\nWAL-backed set() — group-commit durability vs. throughput (500ms each)\n";
+    std::cout << "\nWAL-backed set() - group-commit durability vs. throughput (500ms each)\n";
     std::cout << std::string(80, '-') << '\n';
 
     auto benchWAL = [&](size_t syncEveryN, const char* label)

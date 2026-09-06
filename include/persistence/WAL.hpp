@@ -84,7 +84,7 @@ public:
         const std::function<void(RecordType, const std::string&, const std::string&, int64_t)>& visitor,
         std::optional<uint64_t> minEpochExclusive = std::nullopt);
 
-    /// Read-only chain verification — never mutates the file. For a verifier tool.
+    /// Read-only chain verification - never mutates the file. For a verifier tool.
     [[nodiscard]] RecoveryResult verify();
 
     void close(); ///< Flushes pending writes before closing the fd.

@@ -24,7 +24,7 @@ TEST_CASE("WAL recovery: garbage appended at end is truncated gracefully", "[wal
         db.set("before", "good", 1.0);
     }
 
-    // Simulate a torn write — append garbage bytes to the WAL
+    // Simulate a torn write - append garbage bytes to the WAL
     {
         std::ofstream f(WAL_PATH, std::ios::binary | std::ios::app);
         REQUIRE(f.is_open());
@@ -32,7 +32,7 @@ TEST_CASE("WAL recovery: garbage appended at end is truncated gracefully", "[wal
         f.write(garbage.data(), static_cast<std::streamsize>(garbage.size()));
     }
 
-    // Reopen — WAL must truncate the garbage and recover the clean entry
+    // Reopen - WAL must truncate the garbage and recover the clean entry
     {
         StorageEngine db(WAL_PATH);
         REQUIRE(db.get("before").has_value());
