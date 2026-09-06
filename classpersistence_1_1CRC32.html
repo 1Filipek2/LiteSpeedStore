@@ -88,7 +88,10 @@ Static Public Member Functions</h2></td></tr>
 <tr class="memitem:a9f6f4c973a55233bb9c8590c4e77d8c5" id="r_a9f6f4c973a55233bb9c8590c4e77d8c5"><td class="memItemLeft" align="right" valign="top">static uint32_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classpersistence_1_1CRC32.html#a9f6f4c973a55233bb9c8590c4e77d8c5">calculate</a> (const void *data, std::size_t length)</td></tr>
 <tr class="separator:a9f6f4c973a55233bb9c8590c4e77d8c5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
-<h2 class="groupheader">Member Function Documentation</h2>
+<a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
+<div class="textblock"><p>Standard CRC-32 (IEEE 802.3), the same one zip and gzip use.</p>
+<p>Catches accidental corruption in <a class="el" href="classpersistence_1_1WAL.html">WAL</a> and snapshot records - a torn write or a bad sector. It is not a security check: an attacker can recompute a CRC after editing a record, which is what the SHA-256 chain in <a class="el" href="classpersistence_1_1WAL.html">WAL</a> is for. </p>
+</div><h2 class="groupheader">Member Function Documentation</h2>
 <a id="a9f6f4c973a55233bb9c8590c4e77d8c5" name="a9f6f4c973a55233bb9c8590c4e77d8c5"></a>
 <h2 class="memtitle"><span class="permalink"><a href="#a9f6f4c973a55233bb9c8590c4e77d8c5">&#9670;&#160;</a></span>calculate()</h2>
 

@@ -94,7 +94,7 @@ Classes</h2></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a id="define-members" name="define-members"></a>
 Macros</h2></td></tr>
-<tr class="memitem:ad526aa97a7d8a0a2d02244c8ac5a04c3" id="r_ad526aa97a7d8a0a2d02244c8ac5a04c3"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="FastTrace_8hpp.html#ad526aa97a7d8a0a2d02244c8ac5a04c3">TRACE_SCOPE</a>(name,  engine)</td></tr>
+<tr class="memitem:ad526aa97a7d8a0a2d02244c8ac5a04c3" id="r_ad526aa97a7d8a0a2d02244c8ac5a04c3"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="FastTrace_8hpp.html#ad526aa97a7d8a0a2d02244c8ac5a04c3">TRACE_SCOPE</a>(name,  engine)&#160;&#160;&#160;    <a class="el" href="classTimer.html">Timer</a> timer##__LINE__((name), [&amp;](double ms) { (engine).set((name), std::to_string(ms) + &quot; ms&quot;, ms); })</td></tr>
 <tr class="separator:ad526aa97a7d8a0a2d02244c8ac5a04c3"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Macro Definition Documentation</h2>
@@ -119,15 +119,11 @@ Macros</h2></td></tr>
         <tr>
           <td></td>
           <td>)</td>
-          <td></td><td></td>
+          <td></td><td>&#160;&#160;&#160;    <a class="el" href="classTimer.html">Timer</a> timer##__LINE__((name), [&amp;](double ms) { (engine).set((name), std::to_string(ms) + &quot; ms&quot;, ms); })</td>
         </tr>
       </table>
 </div><div class="memdoc">
-<b>Value:</b><div class="fragment"><div class="line">    <a class="code hl_class" href="classTimer.html">Timer</a> timer##__LINE__((name), [&amp;](<span class="keywordtype">double</span> ms) { \</div>
-<div class="line">        (engine).set((name), std::to_string(ms) + <span class="stringliteral">&quot; ms&quot;</span>, ms); \</div>
-<div class="line">    })</div>
-<div class="ttc" id="aclassTimer_html"><div class="ttname"><a href="classTimer.html">Timer</a></div><div class="ttdef"><b>Definition</b> FastTrace.hpp:9</div></div>
-</div><!-- fragment --><p>Writes elapsed ms to <code>engine</code> under <code>name</code> when the enclosing scope exits. </p>
+<p>Writes elapsed ms to <code>engine</code> under <code>name</code> when the enclosing scope exits. </p>
 
 </div>
 </div>
